@@ -1,0 +1,354 @@
+.full {
+  width: 100%;
+}
+.color-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px 0 0;
+}
+.color-option {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  min-height: 78px;
+  border: 2px solid transparent;
+  border-radius: 15px;
+  color: #1e3026;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform 120ms var(--ease-out);
+}
+.color-option:active {
+  transform: scale(0.97);
+}
+.color-option > span {
+  font-size: 23px;
+}
+.color-option.red {
+  background: #e77c6a;
+}
+.color-option.yellow {
+  background: #e9bf59;
+}
+.color-option.green {
+  background: #77a990;
+}
+.color-option.blue {
+  background: #6b9fca;
+}
+.rule-intro {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: #c8d9b509;
+  border: 1px solid var(--line);
+  padding: 17px;
+  border-radius: 14px;
+  margin: 5px 0 24px;
+}
+.rule-intro-icon {
+  display: flex;
+  color: var(--accent);
+}
+.rule-intro strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rule-intro p {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 6px 0 0;
+}
+.rules-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: grid;
+  gap: 23px;
+}
+.rules-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.rules-list li > span {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  width: 25px;
+  height: 25px;
+  background: #edab8b0a;
+  border: 1px solid #edab8b1c;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  flex: 0 0 25px;
+}
+.rules-list strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rules-list p {
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 7px 0 0;
+}
+.rule-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 22px 0;
+  color: #9aae8b;
+}
+.rule-note svg {
+  flex: 0 0 17px;
+  margin-top: 2px;
+}
+.rule-note p {
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 0;
+}
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 19px 0;
+  border-bottom: 1px solid var(--line);
+}
+.setting-row strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.setting-row p {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 7px 0 0;
+}
+.switch {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  cursor: pointer;
+  flex: 0 0 44px;
+  display: flex;
+  align-items: center;
+}
+.switch input {
+  opacity: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  margin: 0;
+  z-index: 1;
+}
+.switch span {
+  display: block;
+  width: 42px;
+  height: 25px;
+  border: 1px solid #65775a60;
+  background: #394433;
+  border-radius: 20px;
+}
+.switch span::before {
+  content: '';
+  width: 17px;
+  height: 17px;
+  position: absolute;
+  top: 14px;
+  left: 4px;
+  background: #d5ddcc;
+  border-radius: 50%;
+  transition: transform 160ms var(--ease-out);
+}
+.switch input:checked + span {
+  background: #81966d;
+}
+.switch input:checked + span::before {
+  transform: translateX(16px);
+}
+.switch input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.setting-group {
+  margin-top: 29px;
+}
+.setting-group > .eyebrow {
+  margin-bottom: 12px;
+}
+.setting-link {
+  width: 100%;
+  min-height: 68px;
+  padding: 14px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+}
+.setting-link > span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.setting-link svg {
+  color: #a9ba9a;
+  flex: 0 0 auto;
+}
+.setting-link small {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  margin-top: 6px;
+}
+.settings-footer {
+  text-align: center;
+  font-size: 10px;
+  color: #7f9175;
+  margin: 24px 0 0;
+}
+.segmented {
+  display: flex;
+  padding: 4px;
+  background: #151e17;
+  border-radius: 12px;
+  gap: 4px;
+  margin: 4px 0 22px;
+}
+.segmented button {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  border-radius: 9px;
+  font-size: 12px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.segmented button.chosen {
+  background: #394535;
+  color: var(--cream);
+  box-shadow: 0 1px 3px #0002;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 19px;
+}
+.field > span {
+  font-size: 12px;
+}
+.field input {
+  width: 100%;
+  height: 50px;
+  padding: 0 14px;
+  border: 1px solid #b6c9a22b;
+  border-radius: 11px;
+  background: #19241c;
+  color: var(--cream);
+}
+.field input::placeholder {
+  color: #75866d;
+  font-size: 13px;
+}
+.rule-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.rule-toggle strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.rule-toggle span {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.rule-toggle input {
+  width: 22px;
+  height: 22px;
+  accent-color: #9bae84;
+}
+.form-tip {
+  color: var(--muted);
+  text-align: center;
+  font-size: 10px;
+  line-height: 1.8;
+  margin: 15px 0 0;
+}
+.form-error {
+  padding: 12px;
+  background: #edab8b0a;
+  border: 1px solid #edab8b20;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1.8;
+}
+.invite-code {
+  border: 1px dashed #a2b58d47;
+  background: #c2d6af06;
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 24px 16px;
+  margin: 5px 0 20px;
+}
+.invite-code > span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.invite-code > strong {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  user-select: all;
+}
+@media (hover: hover) and (pointer: fine) {
+  .setting-link:hover,
+  .color-option:hover {
+    filter: brightness(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch span::before,
+  .color-option {
+    transition: none;
+  }
+  .color-option:active {
+    transform: none;
+  }
+}
+.gentle .switch span::before,
+.gentle .color-option {
+  transition: none;
+}
+.gentle .color-option:active {
+  transform: none;
+}
