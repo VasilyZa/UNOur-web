@@ -2,7 +2,7 @@
 
 UNO 网页客户端。Svelte 5 + TypeScript + Vite，独立于 Go 后端的前端项目。
 
-main 推送会由 GitHub Actions 执行真实 Go 后端测试、检查和 Docker 构建，成功后自动部署前端镜像。后端单独更新，SQLite 数据卷保持不变；服务端安装与回退方法见 [部署说明](https://github.com/chemsource/UNOur/blob/main/docs/deployment.md)。部署私钥和固定主机公钥存放在 Actions Secrets，仓库内不保存服务器密码。
+main 推送会由 GitHub Actions 执行真实 Go 后端测试、检查和 Docker 构建，成功后自动部署前端镜像。后端单独更新，SQLite 数据卷保持不变；服务端安装与回退方法见 [部署说明](https://github.com/chemsource/UNOur/blob/main/docs/deployment.md)。服务器地址、部署私钥和固定主机公钥存放在 Actions Secrets，仓库内不保存服务器密码。
 
 ## 开始
 
