@@ -1,22 +1,41 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { OnlineTransport } from './online'
-import { DemoTransport } from './demo'
+import { roomFixture } from '../../test/room'
 import { ApiError } from './api'
 import type { Room, Session } from './types'
 
-const session: Session = { roomId: 'r', playerId: 'you', token: 'private' }
-function fixture(): Room {
-  let room!: Room
-  const demo = new DemoTransport()
-  demo.subscribe((snapshot) => {
-    room = snapshot.room
-  })
-  demo.dispose()
-  return room
+const session: Session = {
+  roomId: 'r',
+  playerId: 'you',
+  token: 'private',
+  accountId: 'account',
 }
+const fixture = roomFixture
 afterEach(() => vi.useRealTimers())
 
 describe('联机传输生命周期', () => {
+  it('销毁后迟到的认证错误不能清除新的会话', async () => {
+    vi.useFakeTimers()
+    let reject!: (error: Error) => void
+    const lost = vi.fn()
+    const api = {
+      read: vi.fn(
+        () =>
+          new Promise<Room>((_resolve, fail) => {
+            reject = fail
+          }),
+      ),
+      action: vi.fn(),
+    }
+    const online = new OnlineTransport(api, session, fixture(), lost)
+    online.subscribe(() => {})
+    await vi.advanceTimersByTimeAsync(900)
+    online.dispose()
+    reject(new ApiError('account_unauthorized', 'expired', 401))
+    await Promise.resolve()
+    expect(lost).not.toHaveBeenCalled()
+  })
+
   it('迟到的旧轮询不能覆盖已提交的新版本', async () => {
     vi.useFakeTimers()
     const initial = fixture()

@@ -1,0 +1,132 @@
+.entry-layout {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 0 64px;
+}
+.entry-card {
+  width: min(100%, 410px);
+  padding: 30px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 12px 48px var(--shadow);
+}
+.entry-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 27px;
+}
+.entry-heading h1 {
+  font-size: 25px;
+  margin: 0;
+}
+.entry-icon {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface-muted);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.entry-account {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: -12px 0 27px;
+  overflow-wrap: anywhere;
+}
+.loading-state {
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.account-profile {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 8px 0 26px;
+}
+.account-profile h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.upload-button {
+  position: relative;
+  cursor: pointer;
+}
+.upload-button:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+}
+.upload-button.disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.reset-avatar,
+.resume-room {
+  display: flex;
+  width: fit-content;
+  margin: 20px auto 0;
+  min-height: 44px;
+  justify-content: center;
+}
+.account-separator {
+  margin: 26px 0;
+  height: 1px;
+  background: var(--line);
+}
+.retry-connection {
+  min-height: 44px;
+  margin-bottom: 16px;
+}
+.reconnecting .room-tag {
+  color: var(--warning);
+}
+@media (max-width: 699px) {
+  .entry-layout {
+    padding: 24px 16px 40px;
+  }
+  .entry-card {
+    padding: 24px;
+    border-radius: 22px;
+  }
+  .entry-heading {
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+}
+@media (max-height: 650px) and (max-width: 699px) {
+  .entry-layout {
+    padding-top: 12px;
+    padding-bottom: 24px;
+  }
+  .entry-card {
+    padding: 21px;
+  }
+  .entry-heading {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .entry-heading h1 {
+    font-size: 22px;
+  }
+  .entry-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+}

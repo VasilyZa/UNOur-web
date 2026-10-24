@@ -18,7 +18,7 @@
     width="89"
     height="133"
     rx="7"
-    fill={back ? '#324b40' : colors[card?.color || 'red']}
+    fill={back ? '#343b48' : colors[card?.color || 'red']}
   />
   {#if back}
     <rect
@@ -50,7 +50,7 @@
       y="80"
       text-anchor="middle"
       transform="rotate(-14 50 72)"
-      fill="#314c3f"
+      fill="#343b48"
       font-size="24"
       font-family="Arial,sans-serif"
       font-weight="900"

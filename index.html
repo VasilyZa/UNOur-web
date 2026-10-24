@@ -7,12 +7,31 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#1c261e" />
+    <meta name="theme-color" content="#f3f4f6" />
+    <script>
+      ;(() => {
+        let preference = 'system'
+        try {
+          const stored = localStorage.getItem('unour.theme')
+          if (stored === 'light' || stored === 'dark') preference = stored
+        } catch {}
+        const theme =
+          preference === 'dark' ||
+          (preference === 'system' &&
+            matchMedia('(prefers-color-scheme: dark)').matches)
+            ? 'dark'
+            : 'light'
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+        document.querySelector('meta[name="theme-color"]').content =
+          theme === 'dark' ? '#15171b' : '#f3f4f6'
+      })()
+    </script>
     <meta
       name="description"
-      content="UNOur，一张留给朋友的 UNO 牌桌。好朋友，来一局。"
+      content="UNOur，支持经典与自定义规则的 UNO 在线牌桌。"
     />
-    <title>UNOur · 好朋友，来一局</title>
+    <title>UNOur · UNO 牌桌</title>
   </head>
   <body>
     <div id="app"></div>

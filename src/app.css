@@ -1,25 +1,20 @@
+@import './styles/theme.css';
 @import './styles/panels.css';
+@import './styles/account.css';
 
 :root {
   --font:
     'Avenir Next', 'Nunito Sans', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
     sans-serif;
   font-family: var(--font);
-  color: #ececdf;
-  background: #141a16;
+  color: var(--text);
+  background: var(--page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --text: #ececdf;
-  --muted: #98a493;
-  --surface: #202b22;
-  --line: #aebba718;
-  --accent: #edab8b;
-  --cream: #eae8d7;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -31,7 +26,6 @@ html {
 }
 body {
   margin: 0;
-  min-width: 320px;
   overscroll-behavior: none;
 }
 body:has(dialog[open]) {
@@ -64,7 +58,7 @@ input {
   outline-offset: 5px;
 }
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus);
 }
 input {
   min-width: 0;
@@ -120,7 +114,7 @@ input {
   height: 23px;
   position: absolute;
   bottom: 2px;
-  border: 2px solid #141a16;
+  border: 2px solid var(--page);
   border-radius: 4px;
   background: #6d9b7e;
   transform: rotate(-25deg);
@@ -142,7 +136,7 @@ input {
   transform: rotate(26deg);
 }
 .brand-note {
-  color: #82917e;
+  color: var(--muted);
   font-size: 11px;
   border-left: 1px solid var(--line);
   padding-left: 21px;
@@ -158,19 +152,19 @@ input {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #b4c1aa;
+  color: var(--muted);
   font-size: 10px;
   padding: 7px 11px;
-  border: 1px solid #aebba71a;
+  border: 1px solid var(--line);
   border-radius: 30px;
-  background: #ffffff03;
+  background: var(--accent-soft);
 }
 .connection-badge i,
 .live-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #a0ba8d;
+  background: var(--status);
 }
 .connection-badge.offline {
   color: var(--accent);
@@ -187,7 +181,7 @@ input {
   border: 0;
   border-radius: 12px;
   background: transparent;
-  color: #b7c1ac;
+  color: var(--muted);
   cursor: pointer;
   transition:
     transform 120ms var(--ease-out),
@@ -195,7 +189,7 @@ input {
 }
 .icon-button:active {
   transform: scale(0.97);
-  background: #ffffff09;
+  background: var(--hover);
 }
 .game-layout {
   display: grid;
@@ -206,11 +200,10 @@ input {
   padding-bottom: 2px;
 }
 .game-panel {
-  --surface: #202b22;
   background: var(--surface);
-  border: 1px solid #b6c5ab1c;
+  border: 1px solid var(--line);
   border-radius: 26px;
-  box-shadow: 0 10px 60px #050d0621;
+  box-shadow: 0 10px 60px var(--shadow);
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -226,13 +219,13 @@ input {
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 1.9px;
-  color: #93a18a;
+  color: var(--muted);
   display: flex;
   align-items: center;
   gap: 5px;
 }
 .tiny-leaf {
-  color: #8b9d7a;
+  color: var(--muted);
   display: inline-flex;
 }
 h1 {
@@ -248,10 +241,10 @@ h1 {
   font-size: 9px;
   letter-spacing: 0;
   font-weight: 400;
-  color: #a7b09b;
+  color: var(--muted);
   padding: 3px 6px;
-  background: #ffffff07;
-  border: 1px solid #b5c1a71a;
+  background: var(--accent-soft);
+  border: 1px solid var(--line);
   border-radius: 4px;
 }
 .room-tools {
@@ -267,14 +260,14 @@ h1 {
   gap: 10px;
   margin: 4px 24px 17px;
   padding: 11px 14px;
-  border: 1px solid #a4b5941c;
-  background: #75855f09;
+  border: 1px solid var(--line);
+  background: var(--accent-soft);
   border-radius: 11px;
 }
 .turn-indicator {
   width: 26px;
   height: 26px;
-  border: 1px solid #a0b28b2e;
+  border: 1px solid var(--line-strong);
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -284,10 +277,10 @@ h1 {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #8fa483;
+  background: var(--status);
 }
 .your-turn .turn-indicator {
-  border-color: #edab8b38;
+  border-color: var(--accent-line);
 }
 .your-turn .turn-indicator i {
   background: var(--accent);
@@ -300,20 +293,20 @@ h1 {
 .turn-strip strong {
   font-size: 12px;
   font-weight: 600;
-  color: #c3cdba;
+  color: var(--text);
 }
 .your-turn strong {
-  color: #edc1a6;
+  color: var(--accent);
 }
 .turn-strip > div > span {
   font-size: 10px;
-  color: #8e9d85;
+  color: var(--muted);
 }
 .turn-side {
   margin-left: auto;
   letter-spacing: 1.2px;
   font-size: 7px;
-  color: #819078;
+  color: var(--muted);
   white-space: nowrap;
 }
 .action-bar {
@@ -344,16 +337,16 @@ h1 {
 .button.primary {
   flex: 1;
   background: var(--accent);
-  color: #2e372b;
+  color: var(--on-accent);
 }
 .button.primary:disabled {
-  background: #354331;
-  color: #9dab8d;
+  background: var(--disabled);
+  color: var(--on-disabled);
 }
 .button.secondary {
-  background: #c2d2ac08;
-  color: #c5cfba;
-  border-color: #b9c9a426;
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--line-strong);
 }
 .button:disabled {
   cursor: default;
@@ -366,13 +359,13 @@ h1 {
   align-content: center;
   justify-items: center;
   gap: 2px;
-  background: #e9bf590b;
-  border: 1px solid #e9bf5933;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-line);
   border-radius: 10px;
   width: 44px;
   flex: 0 0 44px;
   padding: 0;
-  color: #e9bf59;
+  color: var(--warning);
   font-size: 9px;
   cursor: pointer;
 }
@@ -381,7 +374,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  color: #75866e;
+  color: var(--muted);
   font-size: 8px;
   padding: 15px 15px 17px;
   letter-spacing: 0.5px;
@@ -411,17 +404,17 @@ h1 {
   gap: 17px;
 }
 .rail-card {
-  border: 1px solid #aebba714;
+  border: 1px solid var(--line);
   border-radius: 19px;
   padding: 21px 20px;
-  background: #ffffff02;
+  background: var(--accent-soft);
 }
 .intro-card {
   position: relative;
   min-height: 244px;
   overflow: hidden;
   padding-bottom: 45px;
-  background: #1a211b;
+  background: var(--surface-muted);
 }
 .intro-card .eyebrow {
   font-size: 6px;
@@ -432,7 +425,7 @@ h1 {
   font-weight: 500;
   line-height: 1.65;
   margin: 20px 0 12px;
-  color: #c8d1bc;
+  color: var(--text);
   letter-spacing: 0.3px;
   position: relative;
   z-index: 1;
@@ -440,7 +433,7 @@ h1 {
 .intro-card p {
   font-size: 10px;
   line-height: 1.9;
-  color: #8b9b81;
+  color: var(--muted);
   margin: 0;
   position: relative;
   z-index: 1;
@@ -490,9 +483,9 @@ h1 {
   margin: 0;
 }
 .small-badge {
-  color: #a4b596;
+  color: var(--muted);
   font-size: 8px;
-  background: #9bbd7610;
+  background: var(--accent-soft);
   border-radius: 4px;
   padding: 4px 6px;
   white-space: nowrap;
@@ -511,7 +504,7 @@ h1 {
 .room-id > span {
   font-size: 7px;
   letter-spacing: 1px;
-  color: #809377;
+  color: var(--muted);
 }
 .room-id > strong {
   font-size: 16px;
@@ -522,7 +515,7 @@ h1 {
 }
 .room-id > svg {
   margin-left: auto;
-  color: #809377;
+  color: var(--muted);
   flex: 0 0 15px;
 }
 .room-facts {
@@ -534,7 +527,7 @@ h1 {
   font-size: 10px;
 }
 .room-facts > span:nth-child(odd) {
-  color: #8b9c80;
+  color: var(--muted);
 }
 .room-facts > span:last-child {
   text-align: right;
@@ -554,9 +547,9 @@ h1 {
 .rail-invite {
   width: 100%;
   margin-top: 19px;
-  background: #dde1c90a;
-  color: #bac8ab;
-  border: 1px solid #b8c5a21a;
+  background: var(--accent-soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
   font-size: 10px;
   min-height: 44px;
 }
@@ -572,31 +565,23 @@ h1 {
   gap: 9px;
   font-size: 9px;
   line-height: 1.7;
-  color: #8d9e82;
+  color: var(--muted);
   margin: 10px 0 0;
 }
 .activity-list p > i {
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: #7c8d71;
+  background: var(--status);
   flex: 0 0 3px;
   margin-top: 6px;
-}
-.rail-signature {
-  text-align: center;
-  color: #586c50;
-  font-size: 9px;
-  font-style: italic;
-  letter-spacing: 0.5px;
-  margin: 2px 0 0;
 }
 .desktop-footer {
   height: 64px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #65785c;
+  color: var(--muted);
   font-size: 9px;
   flex: 0 0 auto;
 }
@@ -614,13 +599,13 @@ h1 {
   width: max-content;
   max-width: min(470px, calc(100% - 32px));
   padding: 13px 17px;
-  background: #e9e8d9;
-  color: #344332;
-  border: 1px solid #f3f2e4;
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid var(--accent);
   border-radius: 12px;
   font-size: 12px;
   line-height: 1.6;
-  box-shadow: 0 4px 35px #0004;
+  box-shadow: 0 4px 35px var(--shadow-strong);
   transition:
     transform 200ms var(--ease-out),
     opacity 200ms var(--ease-out);
@@ -652,15 +637,15 @@ h1 {
 }
 @media (hover: hover) and (pointer: fine) {
   .icon-button:hover {
-    background: #ffffff08;
+    background: var(--hover);
     color: var(--text);
   }
   .button.primary:hover:not(:disabled) {
-    background: #f1b798;
+    background: var(--accent-hover);
   }
   .button.secondary:hover:not(:disabled),
   .rail-invite:hover {
-    background: #c2d2ac12;
+    background: var(--hover);
   }
   .text-button:hover {
     color: var(--accent);
@@ -688,12 +673,11 @@ h1 {
 }
 @media (max-width: 699px) {
   :root {
-    background: #1c261e;
-    --surface: #202b22;
+    background: var(--page);
   }
   .app-shell {
     padding: 0;
-    background: #1c261e;
+    background: var(--page);
   }
   .app-header {
     height: calc(65px + env(safe-area-inset-top, 0px));
@@ -706,7 +690,7 @@ h1 {
     gap: 10px;
   }
   .brand-cards i {
-    border-color: #1c261e;
+    border-color: var(--page);
   }
   .brand-note {
     display: none;
@@ -773,13 +757,13 @@ h1 {
     padding: 0 18px;
   }
   .panel-footnote {
-    font-size: 7px;
-    padding: 10px 0;
+    display: none;
   }
   .desktop-footer {
     display: none;
   }
   .notice {
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
     font-size: 11px;
     padding: 11px 13px;
   }
@@ -822,14 +806,18 @@ h1 {
     min-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px));
   }
   .room-heading {
-    padding-top: 3px;
-    padding-bottom: 3px;
+    padding-top: 2px;
+    padding-bottom: 2px;
   }
   .turn-strip {
-    padding-top: 3px;
-    padding-bottom: 3px;
-    margin-top: 4px;
-    margin-bottom: 5px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }
+  .turn-indicator {
+    width: 22px;
+    height: 22px;
   }
   .panel-footnote {
     display: none;
@@ -865,6 +853,9 @@ h1 {
 @media (max-width: 359px) {
   .app-header {
     padding-left: 17px;
+  }
+  .connection-badge {
+    display: none;
   }
   .room-heading {
     padding-left: 17px;

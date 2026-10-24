@@ -1,11 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import type { Room } from '../game/types'
-  let {
-    room,
-    mode,
-    onclose,
-  }: { room: Room; mode: 'demo' | 'online'; onclose: () => void } = $props()
+  let { room, onclose }: { room: Room; onclose: () => void } = $props()
 </script>
 
 <div class="rule-intro">
@@ -46,12 +42,8 @@
 </ol>
 <div class="rule-note">
   <Icon name="shield" size={17} />
-  <p>
-    {mode === 'demo'
-      ? '当前是交互试玩，朋友由电脑扮演。完整规则以联机牌局为准。'
-      : '本局规则由房主创建时确定；出牌结果以服务器判定为准。'}
-  </p>
+  <p>本局规则由房主创建时确定；出牌结果以服务器判定为准。</p>
 </div>
 <button class="button primary full" onclick={onclose}
-  >懂了，回牌桌<Icon name="arrow" size={17} /></button
+  >返回牌桌<Icon name="arrow" size={17} /></button
 >

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onDestroy, type Snippet } from 'svelte'
   import Icon from './Icon.svelte'
+  import { DialogMotion } from '../motion/dialog'
   let {
     open,
     title,
@@ -17,71 +18,38 @@
     reduced?: boolean
   } = $props()
   let dialog: HTMLDialogElement
-  let motion: Animation | undefined
+  let motion: DialogMotion | undefined
   let closing = $state(false)
+  let pressedOutside = false
+  const id = $props.id()
 
+  $effect.pre(() => {
+    if (!dialog) return
+    if (!open && dialog.open) dialog.style.height = `${dialog.offsetHeight}px`
+    else if (open) dialog.style.removeProperty('height')
+  })
   $effect(() => {
     if (!dialog) return
-    const visible = open
-    const gentle =
-      reduced || matchMedia('(prefers-reduced-motion: reduce)').matches
-    motion?.cancel()
-    if (visible) {
-      closing = false
-      if (!dialog.open) {
-        dialog.showModal()
-        motion = dialog.animate(
-          [
-            {
-              opacity: 0,
-              transform: gentle ? 'none' : 'translateY(16px) scale(.97)',
-            },
-            { opacity: 1, transform: 'none' },
-          ],
-          {
-            duration: gentle ? 160 : 250,
-            easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
-          },
-        )
-      }
-    } else if (dialog.open) {
-      closing = true
-      motion = dialog.animate(
-        [
-          { opacity: 1, transform: 'none' },
-          {
-            opacity: 0,
-            transform: gentle ? 'none' : 'translateY(16px) scale(.97)',
-          },
-        ],
-        {
-          duration: gentle ? 120 : 200,
-          easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
-          fill: 'forwards',
-        },
-      )
-      motion.finished
-        .then(() => {
-          if (!open) dialog.close()
-        })
-        .catch(() => {})
-    }
+    motion ??= new DialogMotion(dialog)
+    closing = !open && dialog.open
+    motion.transition(open, reduced)
   })
-  onDestroy(() => {
-    motion?.cancel()
-    dialog?.close()
-  })
+  onDestroy(() => motion?.dispose())
+
+  function outside(event: MouseEvent | PointerEvent) {
+    const rect = dialog.getBoundingClientRect()
+    return (
+      event.target === dialog &&
+      (event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom)
+    )
+  }
 
   function backdrop(event: MouseEvent) {
-    if (event.target !== dialog) return
-    const rect = dialog.getBoundingClientRect()
-    if (
-      event.clientX < rect.left ||
-      event.clientX > rect.right ||
-      event.clientY < rect.top ||
-      event.clientY > rect.bottom
-    )
-      onclose()
+    if (pressedOutside && outside(event)) onclose()
+    pressedOutside = false
   }
 </script>
 
@@ -90,8 +58,14 @@
   bind:this={dialog}
   class:closing
   class="sheet"
-  aria-labelledby="sheet-title"
-  aria-describedby={description ? 'sheet-description' : undefined}
+  aria-labelledby={`${id}-title`}
+  aria-describedby={description ? `${id}-description` : undefined}
+  onpointerdown={(event) => {
+    pressedOutside = outside(event)
+  }}
+  onpointercancel={() => {
+    pressedOutside = false
+  }}
   onclick={backdrop}
   oncancel={(event) => {
     event.preventDefault()
@@ -101,8 +75,8 @@
   <div class="sheet-grip" aria-hidden="true"></div>
   <header class="sheet-header">
     <div>
-      <h2 id="sheet-title">{title}</h2>
-      {#if description}<p id="sheet-description">{description}</p>{/if}
+      <h2 id={`${id}-title`}>{title}</h2>
+      {#if description}<p id={`${id}-description`}>{description}</p>{/if}
     </div>
     <button class="icon-button" aria-label="关闭面板" onclick={onclose}
       ><Icon name="close" /></button
@@ -118,13 +92,17 @@
     padding: 0;
     border: 1px solid var(--line);
     border-radius: 25px;
-    background: #242b25;
+    background: var(--surface-raised);
     color: var(--text);
-    overflow: visible;
-    box-shadow: 0 30px 100px #0006;
+    overflow: hidden;
+    box-shadow: 0 30px 100px var(--shadow-strong);
+  }
+  .sheet[open] {
+    display: flex;
+    flex-direction: column;
   }
   .sheet::backdrop {
-    background: #0a100ebd;
+    background: var(--backdrop);
     backdrop-filter: blur(5px);
     opacity: 1;
     transition: opacity 200ms var(--ease-out);
@@ -134,12 +112,14 @@
   }
   .sheet-grip {
     display: none;
+    flex: 0 0 auto;
   }
   .sheet-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 16px;
+    flex: 0 0 auto;
     padding: 28px 24px 16px;
   }
   h2 {
@@ -155,7 +135,8 @@
   }
   .sheet-body {
     padding: 4px 24px 28px;
-    max-height: calc(100dvh - 210px);
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -174,7 +155,7 @@
       width: 32px;
       height: 4px;
       border-radius: 4px;
-      background: #627064;
+      background: var(--line-strong);
       margin: 10px auto 0;
     }
     .sheet-header {

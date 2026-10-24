@@ -3,7 +3,12 @@ import { ApiError } from './api'
 import { restoreRoomSession, sessionForInvitation } from './bootstrap'
 import type { Room, Session } from './types'
 
-const session: Session = { roomId: 'r', playerId: 'me', token: 'private' }
+const session: Session = {
+  roomId: 'r',
+  playerId: 'me',
+  token: 'private',
+  accountId: 'account',
+}
 
 describe('会话恢复边界', () => {
   it('同房间邀请优先复用座位，不同房间邀请不恢复旧房间', () => {

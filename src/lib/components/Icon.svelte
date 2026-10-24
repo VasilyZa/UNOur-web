@@ -1,6 +1,11 @@
 <script lang="ts">
   let { name, size = 20 }: { name: string; size?: number } = $props()
   const paths: Record<string, string> = {
+    user: 'M20 21v-2a7 7 0 0 0-14 0v2M17 7a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z',
+    upload: 'M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5',
+    monitor: 'M3 4h18v13H3zM8 21h8m-4-4v4',
+    sun: 'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+    moon: 'M20.5 13.1A8.6 8.6 0 0 1 10.9 3.5a8.8 8.8 0 1 0 9.6 9.6Z',
     arrow: 'M5 12h14m-5-5 5 5-5 5',
     back: 'm14 6-6 6 6 6',
     plus: 'M12 5v14M5 12h14',

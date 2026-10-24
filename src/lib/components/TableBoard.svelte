@@ -2,7 +2,7 @@
   import CardFace from './CardFace.svelte'
   import PlayerBadge from './PlayerBadge.svelte'
   import Icon from './Icon.svelte'
-  import { colorNames, type Room } from '../game/types'
+  import { botDifficultyNames, colorNames, type Room } from '../game/types'
   let {
     room,
     busy,
@@ -21,6 +21,14 @@
   let state = $derived(room.state)
   let me = $derived(state.players.find((p) => p.id === state.you))
   let opponents = $derived(state.players.filter((p) => p.id !== state.you))
+  let bots = $derived(room.bots ?? {})
+  let botCount = $derived(Object.keys(bots).length)
+  let botDifficulty = $derived(
+    botCount ? botDifficultyNames[Object.values(bots)[0].difficulty] : '',
+  )
+  let botThinking = $derived(
+    state.phase === 'playing' && !!state.turn && !!bots[state.turn],
+  )
   let myTurn = $derived(state.turn === state.you && state.phase === 'playing')
 
   function arrive(node: HTMLElement) {
@@ -47,14 +55,38 @@
 </script>
 
 <section class="table-board" aria-label="牌桌">
-  <div class="opponents" aria-label="其他玩家">
-    {#each opponents as player, index (player.id)}<div class="opponent-slot">
-        <PlayerBadge {player} {index} active={state.turn === player.id} />
-      </div>{/each}
-    {#if !opponents.length}<div class="waiting-friend">
-        <Icon name="users" size={24} /><span>留个位置，等朋友来</span>
-      </div>{/if}
+  <div class="opponents-frame">
+    <!-- Keyboard arrows scroll this native overflow region. -->
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+    <div
+      class="opponents-viewport"
+      class:many={opponents.length > 4}
+      role="region"
+      tabindex="0"
+      aria-label="其他玩家，可左右滑动或使用方向键浏览"
+    >
+      <div class="opponents" class:many={opponents.length > 4}>
+        {#each opponents as player (player.id)}<div class="opponent-slot">
+            <PlayerBadge
+              {player}
+              bot={bots[player.id]}
+              avatarURL={room.profiles?.[player.id]?.avatar_url}
+              active={state.turn === player.id}
+            />
+          </div>{/each}
+        {#if !opponents.length}<div class="waiting-friend">
+            <Icon name="users" size={24} /><span>等待其他玩家加入</span>
+          </div>{/if}
+      </div>
+    </div>
   </div>
+  {#if botCount}
+    <div class="bot-match-line" aria-live="polite">
+      <span>人机对局 · {botDifficulty} · {botCount} 台电脑</span>
+      {#if botThinking}<span class="bot-thinking"><i></i>电脑正在思考…</span
+        >{/if}
+    </div>
+  {/if}
   <div class="arena" class:calling={!!me?.uno}>
     <div class="felt-ring" aria-hidden="true"></div>
     <div class="table-meta">
@@ -85,14 +117,15 @@
     {#if state.phase === 'finished'}
       <div class="finish-state">
         <span class="finish-icon"><Icon name="trophy" size={31} /></span><span
-          class="eyebrow">NICE GAME</span
+          class="eyebrow">本局结果</span
         >
         <h2>
           {state.winner === state.you
-            ? '漂亮，赢下这一局！'
-            : `${state.players.find((p) => p.id === state.winner)?.name || '本局'}获胜`}
+            ? '你获胜'
+            : state.winner
+              ? `${state.players.find((p) => p.id === state.winner)?.name || '玩家'}获胜`
+              : '本局结束'}
         </h2>
-        <p>好牌值得分享，好朋友再来一局。</p>
       </div>
     {:else}
       <div class="piles" class:lobby={state.phase === 'lobby'}>
@@ -132,23 +165,28 @@
       </div>
       {#if me?.uno}
         <button class="uno-call" onclick={onuno} aria-label="喊 UNO，立即确认"
-          ><span class="uno-word">UNO!</span><span>只剩一张，快喊出来</span
-          ><span class="uno-meter" aria-hidden="true"
+          ><span class="uno-word">UNO!</span><span>剩余一张手牌</span><span
+            class="uno-meter"
+            aria-hidden="true"
             ><i
               style:transform={`scaleX(${Math.max(0, Math.min(1, remaining / 2000))})`}
             ></i></span
           ></button
         >
       {/if}
-      <p class="table-whisper">
-        {state.phase === 'lobby'
-          ? '复制房间号，邀请朋友一起坐下'
-          : me?.uno
-            ? '点中央按钮 · 或按空格键'
-            : state.pending_draw
-              ? `桌上有 ${state.pending_draw} 张罚牌待处理`
-              : '好牌，好朋友，好时光。'}
-      </p>
+      {#if state.phase === 'lobby' || me?.uno || state.pending_draw}<p
+          class="table-whisper"
+        >
+          {state.phase === 'lobby'
+            ? botCount
+              ? '人机对局准备中'
+              : '复制房间号以邀请玩家'
+            : me?.uno
+              ? '点中央按钮 · 或按空格键'
+              : state.pending_draw
+                ? `桌上有 ${state.pending_draw} 张罚牌待处理`
+                : ''}
+        </p>{/if}
     {/if}
   </div>
 </section>
@@ -159,18 +197,64 @@
     display: flex;
     flex-direction: column;
   }
+  .opponents-frame {
+    min-width: 0;
+    flex: 0 0 auto;
+  }
+  .opponents-viewport {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    -webkit-overflow-scrolling: touch;
+    outline-offset: -2px;
+  }
+  .opponents-viewport:focus-visible {
+    outline: 2px solid var(--focus);
+    border-radius: 8px;
+  }
   .opponents {
     display: flex;
     justify-content: space-evenly;
     gap: 16px;
     padding: 5px 24px 4px;
-    overflow-x: auto;
-    flex: 0 0 auto;
-    scrollbar-width: none;
+    width: 100%;
+  }
+  .opponents.many {
+    width: max-content;
+    min-width: 100%;
+    justify-content: flex-start;
+    gap: 12px;
   }
   .opponent-slot {
     flex: 0 0 80px;
     min-width: 0;
+    scroll-snap-align: center;
+  }
+  .many.opponents-viewport {
+    scroll-snap-type: inline proximity;
+  }
+  .bot-match-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 26px 0;
+    color: var(--muted);
+    font-size: 9px;
+  }
+  .bot-thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .bot-thinking i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
   }
   .waiting-friend {
     display: flex;
@@ -198,16 +282,20 @@
     top: 12px;
     left: 50%;
     transform: translateX(-50%);
-    border: 1px solid #7b99731c;
+    border: 1px solid var(--table-line);
     border-radius: 50%;
-    background: radial-gradient(ellipse at 50% 50%, #344d3833, #1b291900 70%);
+    background: radial-gradient(
+      ellipse at 50% 50%,
+      var(--table-glow),
+      transparent 70%
+    );
     z-index: -1;
   }
   .felt-ring::after {
     content: '';
     position: absolute;
     inset: 10px;
-    border: 1px dashed #7b997314;
+    border: 1px dashed var(--table-line);
     border-radius: inherit;
   }
   .table-meta {
@@ -225,10 +313,10 @@
     align-items: center;
     gap: 6px;
     font-size: 10px;
-    color: #a5b29f;
+    color: var(--muted);
   }
   .current-color {
-    color: #d0d6c8;
+    color: var(--muted);
   }
   .direction {
     font-size: 9px;
@@ -255,8 +343,8 @@
   .deck-layer {
     position: absolute;
     inset: 0;
-    background: #d9ddcb;
-    border: 3px solid #eae4d6;
+    background: #d9dde4;
+    border: 3px solid #f1f2f5;
     border-radius: 11px;
   }
   .deck-layer.one {
@@ -277,7 +365,7 @@
     border-radius: 11px;
     background: transparent;
     cursor: pointer;
-    box-shadow: 0 8px 20px #0003;
+    box-shadow: 0 8px 20px var(--shadow);
     transition: transform 120ms var(--ease-out);
   }
   .deck-card:active:not(:disabled) {
@@ -294,15 +382,15 @@
     height: 28px;
     display: grid;
     place-items: center;
-    background: var(--cream);
-    color: #3b4a3c;
+    background: var(--surface-raised);
+    color: var(--text);
     border-radius: 50%;
     border: 3px solid var(--surface);
   }
   .discard-shadow {
     position: absolute;
     inset: 0;
-    background: #e2dfcc;
+    background: #e0e3e8;
     border-radius: 11px;
     transform: rotate(-8deg);
     opacity: 0.35;
@@ -311,7 +399,7 @@
     position: absolute;
     inset: 0;
     transform: rotate(9deg);
-    filter: drop-shadow(2px 9px 8px #0004);
+    filter: drop-shadow(2px 9px 8px var(--shadow-strong));
   }
   .discard-inner {
     width: 100%;
@@ -319,7 +407,7 @@
   }
   .pile-label {
     font-size: 10px;
-    color: #9ba993;
+    color: var(--muted);
     display: flex;
     gap: 5px;
     align-items: center;
@@ -327,12 +415,12 @@
   .pile-label > span {
     font-size: 9px;
     padding: 2px 4px;
-    background: #ffffff0a;
+    background: var(--hover);
     border-radius: 4px;
   }
   .table-whisper {
     text-align: center;
-    color: #84967e;
+    color: var(--muted);
     font-size: 10px;
     letter-spacing: 0.6px;
     margin: 4px 0 19px;
@@ -350,12 +438,12 @@
     align-items: center;
     flex-direction: column;
     gap: 7px;
-    border: 1px solid #ffb69a;
+    border: 1px solid var(--accent-line);
     border-radius: 20px;
-    background: #ec8d70;
-    color: #26392e;
+    background: var(--accent);
+    color: var(--on-accent);
     cursor: pointer;
-    box-shadow: 0 10px 40px #0d1e13a6;
+    box-shadow: 0 10px 40px var(--shadow-strong);
   }
   .uno-word {
     font-size: 37px;
@@ -376,12 +464,12 @@
     height: 3px;
     border-radius: 3px;
     overflow: hidden;
-    background: #344b3429;
+    background: var(--meter-track);
   }
   .uno-meter i {
     height: 100%;
     display: block;
-    background: #2d4936;
+    background: var(--on-accent);
     transform-origin: left;
   }
   .finish-state {
@@ -399,19 +487,15 @@
     height: 65px;
     display: grid;
     place-items: center;
-    color: #e9bf59;
-    border: 1px solid #e9bf5933;
-    background: #e9bf590c;
+    color: var(--warning);
+    border: 1px solid var(--warning-line);
+    background: var(--warning-soft);
     border-radius: 50%;
     margin-bottom: 10px;
   }
   .finish-state h2 {
     font-size: 23px;
     margin: 0;
-  }
-  .finish-state p {
-    color: var(--muted);
-    font-size: 11px;
   }
   .lobby {
     opacity: 0.35;
@@ -426,8 +510,15 @@
       padding: 0 17px;
       gap: 9px;
     }
+    .opponents.many {
+      gap: 8px;
+      padding-bottom: 4px;
+    }
     .opponent-slot {
       flex-basis: 73px;
+    }
+    .bot-match-line {
+      display: none;
     }
     .arena {
       min-height: 222px;
@@ -488,8 +579,11 @@
     }
   }
   @media (max-height: 650px) and (max-width: 699px) {
+    .opponents.many {
+      padding-bottom: 0;
+    }
     .arena {
-      min-height: 141px;
+      min-height: 130px;
       margin-top: 4px;
       padding-top: 5px;
     }
@@ -499,7 +593,7 @@
       height: 84px;
     }
     .piles {
-      padding: 12px 0 4px;
+      padding: 8px 0 2px;
     }
     .pile-column {
       gap: 9px;
@@ -511,7 +605,7 @@
       display: none;
     }
     .felt-ring {
-      min-height: 140px;
+      min-height: 120px;
     }
     .uno-call {
       width: 175px;

@@ -4,6 +4,13 @@ export type Kind =
   'number' | 'skip' | 'reverse' | 'draw_two' | 'wild' | 'wild_draw_four'
 export type Action =
   'start' | 'play' | 'draw' | 'pass' | 'challenge' | 'uno' | 'uno-penalty'
+export type BotDifficulty = 'easy' | 'normal' | 'hard' | 'expert'
+export type BotStyle = 'balanced' | 'aggressive' | 'cautious'
+
+export interface BotSeat {
+  difficulty: BotDifficulty
+  style: BotStyle
+}
 
 export interface Card {
   id: number
@@ -24,6 +31,8 @@ export interface Player {
   hand?: Card[]
   eliminated: boolean
   uno?: UNOWindow
+  /** 已成功声明的 UNO 窗口编号；用于跨轮询识别和去重。 */
+  uno_declared?: number
 }
 
 export interface GameState {
@@ -51,6 +60,8 @@ export interface RuleSpec {
 }
 
 export interface Room {
+  profiles?: Record<string, import('../account/types').Account>
+  bots?: Record<string, BotSeat>
   id: string
   host_id: string
   created_at: string
@@ -59,6 +70,7 @@ export interface Room {
 }
 
 export interface Session {
+  accountId: string
   roomId: string
   token: string
   playerId: string
@@ -70,6 +82,13 @@ export interface JoinResult {
   room: Room
 }
 
+export const botDifficultyNames: Record<BotDifficulty, string> = {
+  easy: '简单',
+  normal: '标准',
+  hard: '困难',
+  expert: '专家',
+}
+
 export interface ActionBody {
   card_id?: number
   color?: PlayColor | 'keep'
@@ -79,11 +98,10 @@ export interface ActionBody {
 
 export interface Snapshot {
   room: Room
-  connection: 'demo' | 'connected' | 'reconnecting'
+  connection: 'connected' | 'reconnecting'
 }
 
 export interface GameTransport {
-  readonly mode: 'demo' | 'online'
   subscribe(listener: (snapshot: Snapshot) => void): () => void
   act(action: Action, body?: ActionBody): Promise<void>
   dispose(): void

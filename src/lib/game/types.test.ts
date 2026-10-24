@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DemoTransport } from './demo'
+import { roomFixture } from '../../test/room'
 import { suggestsPlayable, type Room } from './types'
 
 function roomWithPenalty(): Room {
-  let room!: Room
-  const demo = new DemoTransport()
-  demo.subscribe((snapshot) => {
-    room = snapshot.room
-  })
-  demo.dispose()
+  const room = roomFixture()
   room.rules.push({ name: 'stacking', options: { reverse: true } })
   room.state.pending_draw = 4
   room.state.pending_draw_kind = 'draw_two'

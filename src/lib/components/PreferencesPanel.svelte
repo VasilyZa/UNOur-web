@@ -1,21 +1,33 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import type { ThemePreference } from '../theme'
   let {
     quietMotion = $bindable(false),
     systemReduced,
-    mode,
-    resetDemo,
-    resumable,
-    onresume,
+    themePreference = $bindable('system'),
   }: {
     quietMotion?: boolean
     systemReduced: boolean
-    mode: 'demo' | 'online'
-    resetDemo: (scenario?: 'normal' | 'uno') => void
-    resumable: boolean
-    onresume: () => void
+    themePreference?: ThemePreference
   } = $props()
 </script>
+
+<fieldset class="theme-picker">
+  <legend>外观</legend>
+  <div class="theme-options">
+    {#each [{ value: 'system', label: '跟随系统', icon: 'monitor' }, { value: 'light', label: '浅色', icon: 'sun' }, { value: 'dark', label: '深色', icon: 'moon' }] as option}
+      <label
+        ><input
+          type="radio"
+          name="theme"
+          value={option.value}
+          bind:group={themePreference}
+        /><Icon name={option.icon} size={18} /><span>{option.label}</span
+        ></label
+      >
+    {/each}
+  </div>
+</fieldset>
 
 <div class="setting-row">
   <div>
@@ -36,37 +48,8 @@
 <div class="setting-row">
   <div>
     <strong>牌桌声音</strong>
-    <p>初版保持安静，听见身边的朋友</p>
+    <p>当前为静音模式</p>
   </div>
   <span class="small-badge">静音</span>
 </div>
-<div class="setting-group">
-  <span class="eyebrow">TRY SOMETHING</span><button
-    class="setting-link"
-    onclick={() => resetDemo('uno')}
-    ><span
-      ><Icon name="clock" size={19} /><span
-        >体验两秒喊 UNO<small>两张手牌，试试看你的反应</small></span
-      ></span
-    ><Icon name="chevron" size={17} /></button
-  ><button class="setting-link" onclick={() => resetDemo()}
-    ><span
-      ><Icon name="reset" size={19} /><span
-        >{mode === 'demo' ? '重新开始试玩' : '离开联机，回到试玩'}<small
-          >{mode === 'demo'
-            ? '重置这张牌桌，换个好手气'
-            : '保留入座凭证，随时可以回来'}</small
-        ></span
-      ></span
-    ><Icon name="chevron" size={17} /></button
-  >{#if resumable && mode === 'demo'}<button
-      class="setting-link"
-      onclick={onresume}
-      ><span
-        ><Icon name="link" size={19} /><span
-          >回到上次联机牌桌<small>使用保存的座位，继续和朋友一起玩</small></span
-        ></span
-      ><Icon name="chevron" size={17} /></button
-    >{/if}
-</div>
-<p class="settings-footer">UNOur · 好朋友，来一局。</p>
+<p class="settings-footer">UNOur</p>

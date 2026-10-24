@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, onDestroy, tick } from 'svelte'
   import CardFace from './CardFace.svelte'
   import Icon from './Icon.svelte'
   import {
@@ -45,6 +45,67 @@
   onMount(() => {
     mounted = true
   })
+  let track: HTMLDivElement
+  let rail: HTMLDivElement
+  let layoutRevision = 0
+  let reflows: Animation[] = []
+  let layoutKey = $derived(
+    `${selected}|${displayed.map((card) => card.id).join(',')}`,
+  )
+  $effect.pre(() => {
+    layoutKey
+    const gentle = reduced
+    const selection = selected
+    if (!track) return
+    const before = new Map(
+      [...track.children]
+        .filter((node): node is HTMLElement => node instanceof HTMLElement)
+        .map((node) => [node.dataset.cardId, node.getBoundingClientRect()]),
+    )
+    const revision = ++layoutRevision
+    void tick().then(() => {
+      if (revision !== layoutRevision || !track) return
+      reflows.forEach((animation) => animation.cancel())
+      reflows = []
+      const chosen = [...track.children].find(
+        (node) => (node as HTMLElement).dataset.cardId === String(selection),
+      )
+      if (chosen && rail) {
+        const rect = chosen.getBoundingClientRect(),
+          bounds = rail.getBoundingClientRect()
+        const delta =
+          rect.left < bounds.left + 16
+            ? rect.left - bounds.left - 16
+            : rect.right > bounds.right - 16
+              ? rect.right - bounds.right + 16
+              : 0
+        if (delta) rail.scrollBy({ left: delta, behavior: 'instant' })
+      }
+      if (gentle) return
+      for (const child of track.children) {
+        const previous = before.get((child as HTMLElement).dataset.cardId)
+        if (!previous) continue
+        const rect = child.getBoundingClientRect()
+        const dx = previous.left - rect.left,
+          dy = previous.top - rect.top
+        if (Math.abs(dx) + Math.abs(dy) < 0.5) continue
+        reflows.push(
+          child.animate(
+            [
+              { transform: `translate(${dx}px, ${dy}px)` },
+              { transform: 'none' },
+            ],
+            { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
+          ),
+        )
+      }
+    })
+  })
+  onDestroy(() => {
+    layoutRevision++
+    reflows.forEach((animation) => animation.cancel())
+  })
+
   function cardIn(node: HTMLElement, index: number) {
     const gentle =
       reduced || matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -80,42 +141,52 @@
   </div>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex (原生滚动区域需要键盘焦点以支持方向键浏览手牌。) -->
   <div
+    bind:this={rail}
     class="hand-scroll"
     tabindex="0"
     role="region"
     aria-label="手牌列表，可左右滚动"
   >
-    <div class="hand-track">
+    <div bind:this={track} class="hand-track">
       {#each displayed as card, index (card.id)}
         {@const playable = suggestsPlayable(card, room)}
         {@const angle =
           displayed.length <= 8 ? (index - (displayed.length - 1) / 2) * 2 : 0}
-        <div class="hand-slot">
+        <div
+          class="hand-slot"
+          class:selected={selected === card.id}
+          data-card-id={card.id}
+        >
           <button
             class="hand-card"
             class:selected={selected === card.id}
-            class:unplayable={myTurn && !playable}
-            style:transform={reduced
-              ? 'none'
-              : selected === card.id
-                ? 'translateY(-15px) rotate(0deg)'
-                : `translateY(${Math.abs(angle) * 0.55}px) rotate(${angle}deg)`}
             aria-label={cardName(card)}
             aria-pressed={selected === card.id}
             disabled={busy || !myTurn}
             onclick={() => onselect(card)}
           >
-            <div class="card-art" use:cardIn={index}><CardFace {card} /></div>
-            {#if selected === card.id}<span class="selected-mark"
-                ><Icon name="check" size={13} /></span
-              >{/if}
+            <span
+              class="hand-visual"
+              style:transform={reduced
+                ? 'none'
+                : selected === card.id
+                  ? 'translateY(-10px) rotate(0deg)'
+                  : `translateY(${Math.abs(angle) * 0.55}px) rotate(${angle}deg)`}
+            >
+              <span
+                class="card-art"
+                class:unplayable={myTurn && !playable}
+                use:cardIn={index}><CardFace {card} /></span
+              >
+              {#if selected === card.id}<span class="selected-mark"
+                  ><Icon name="check" size={13} /></span
+                >{/if}
+            </span>
           </button>
         </div>
       {/each}
       {#if !displayed.length}<p class="empty-hand">
-          {room.state.phase === 'lobby'
-            ? '等朋友到齐，就可以发牌了'
-            : '手牌出完啦'}
+          {room.state.phase === 'lobby' ? '等待开局发牌' : '手牌已出完'}
         </p>{/if}
     </div>
   </div>
@@ -123,7 +194,7 @@
     {displayed.length > 7
       ? '左右滑动浏览手牌 · 点选后确认出牌'
       : selected !== null
-        ? '选好了？确认出牌，或点另一张换牌'
+        ? '确认出牌，或选择其他手牌'
         : '点选一张手牌，再确认出牌'}
   </p>
 </section>
@@ -164,9 +235,9 @@
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
-    padding: 25px 24px 10px;
+    padding: 25px 24px 16px;
     scrollbar-width: thin;
-    scrollbar-color: #49584b transparent;
+    scrollbar-color: var(--line-strong) transparent;
   }
   .hand-track {
     --card-width: 96px;
@@ -174,6 +245,7 @@
     display: flex;
     width: max-content;
     min-width: 0;
+    position: relative;
     margin: 0 auto;
     padding: 0 4px;
   }
@@ -181,44 +253,66 @@
     width: var(--step);
     flex: 0 0 var(--step);
     position: relative;
+    height: calc(var(--card-width) * 1.44);
+    z-index: 0;
   }
+  .hand-slot.selected,
   .hand-slot:last-child {
     width: var(--card-width);
     flex-basis: var(--card-width);
   }
-  .hand-slot:focus-within,
-  .hand-slot:has(.selected) {
+  .hand-slot:has(.hand-card:focus-visible) {
     z-index: 2;
   }
+  .hand-slot.selected {
+    z-index: 3;
+  }
   .hand-card {
-    width: var(--card-width);
-    aspect-ratio: 100 / 144;
+    position: relative;
+    width: 100%;
+    height: 100%;
     display: block;
     border: 0;
     padding: 0;
     border-radius: 11px;
     background: transparent;
-    box-shadow: -3px 3px 12px #0004;
     cursor: pointer;
+  }
+  .hand-card:focus-visible {
+    outline: none;
+  }
+  .hand-card:focus-visible .hand-visual {
+    outline: 2px solid var(--focus);
+    outline-offset: 4px;
+  }
+  .hand-visual {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--card-width);
+    height: 100%;
+    border-radius: 11px;
+    box-shadow: -3px 3px 12px var(--shadow-strong);
+    pointer-events: none;
     transform-origin: center 120%;
-    transition:
-      transform 160ms var(--ease-out),
-      opacity 120ms ease;
+    transition: transform 160ms var(--ease-out);
   }
-  .hand-card.unplayable {
-    filter: saturate(0.7) brightness(0.76);
+  .card-art.unplayable {
+    filter: var(--unplayable-filter);
   }
-  .hand-card.selected {
+  .hand-card.selected .hand-visual {
     box-shadow:
       0 0 0 2px var(--surface),
       0 0 0 4px var(--accent),
-      0 8px 20px #0004;
+      0 8px 20px var(--shadow-strong);
     opacity: 1;
   }
   .hand-card:disabled {
     cursor: default;
   }
   .card-art {
+    display: block;
     width: 100%;
     height: 100%;
   }
@@ -229,7 +323,7 @@
     width: 23px;
     height: 23px;
     background: var(--accent);
-    color: #283228;
+    color: var(--on-accent);
     border-radius: 50%;
     border: 2px solid var(--surface);
     display: grid;
@@ -238,19 +332,20 @@
   .hand-hint {
     font-size: 10px;
     text-align: center;
-    color: #899689;
+    color: var(--muted);
     margin: 0 16px 14px;
   }
   .empty-hand {
-    height: 106px;
+    height: calc(var(--card-width) * 1.44);
+    margin: 0;
     display: grid;
     align-content: center;
     color: var(--muted);
     font-size: 13px;
   }
   @media (hover: hover) and (pointer: fine) {
-    .hand-slot:hover {
-      z-index: 3;
+    .hand-slot:not(.selected):hover {
+      z-index: 1;
     }
     .hand-card:not(:disabled):hover {
       opacity: 1;
@@ -276,7 +371,7 @@
       min-height: 32px;
     }
     .hand-scroll {
-      padding-bottom: 5px;
+      padding-bottom: 14px;
     }
     .hand-hint {
       margin-bottom: 10px;
@@ -287,7 +382,7 @@
       --card-width: 76px;
     }
     .hand-scroll {
-      padding-top: 20px;
+      padding-top: 23px;
     }
     .hand-hint {
       font-size: 9px;
@@ -295,19 +390,19 @@
   }
   @media (max-height: 650px) and (max-width: 699px) {
     .hand-section {
-      padding-top: 4px;
+      padding-top: 2px;
     }
     .hand-track {
       --card-width: 64px;
     }
     .hand-scroll {
-      padding-top: 17px;
-      padding-bottom: 2px;
+      padding-top: 12px;
+      padding-bottom: 5px;
     }
     .hand-hint {
       display: none;
     }
-    .hand-card.selected {
+    .hand-card.selected .hand-visual {
       transform-origin: center;
     }
   }
@@ -320,19 +415,19 @@
       --step: 56px;
     }
     .hand-scroll {
-      padding-top: 20px;
-      padding-bottom: 7px;
+      padding-top: 23px;
+      padding-bottom: 14px;
     }
     .hand-hint {
       margin-bottom: 10px;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hand-card {
-      transition: opacity 120ms ease;
+    .hand-visual {
+      transition: none;
     }
   }
-  :global(.gentle) .hand-card {
-    transition: opacity 120ms ease;
+  :global(.gentle) .hand-visual {
+    transition: none;
   }
 </style>

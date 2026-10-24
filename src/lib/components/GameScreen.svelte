@@ -1,0 +1,528 @@
+<script lang="ts">
+  import { onMount, onDestroy, untrack } from 'svelte'
+  import Icon from './Icon.svelte'
+  import SideRail from './SideRail.svelte'
+  import RulesPanel from './RulesPanel.svelte'
+  import Hand from './Hand.svelte'
+  import Sheet from './Sheet.svelte'
+  import TableBoard from './TableBoard.svelte'
+  import { ApiClient, ApiError, errorMessage } from '../game/api'
+  import { OnlineTransport } from '../game/online'
+  import { unoDeclarationNotice } from '../game/announcements'
+  import {
+    cardName,
+    colorNames,
+    suggestsPlayable,
+    type Action,
+    type ActionBody,
+    botDifficultyNames,
+    type Card,
+    type GameTransport,
+    type PlayColor,
+    type Room,
+    type Session,
+    type Snapshot,
+  } from '../game/types'
+
+  let {
+    api,
+    session,
+    initialRoom,
+    reduced,
+    onleave,
+    onSessionLost,
+  }: {
+    api: ApiClient
+    session: Session
+    initialRoom: Room
+    reduced: boolean
+    onleave: () => void
+    onSessionLost: (error: ApiError) => void
+  } = $props()
+  type Panel = '' | 'room' | 'rules' | 'color'
+  let port: GameTransport
+  let unsubscribe = () => {}
+  let room = $state.raw<Room>(untrack(() => initialRoom))
+  let connection = $state<Snapshot['connection']>('connected')
+  let selected = $state<number | null>(null),
+    sorted = $state(false),
+    busy = $state(false)
+  let panel = $state<Panel>(''),
+    retainedPanel = $state<Panel>('room')
+  let now = $state(Date.now()),
+    notice = $state(''),
+    noticeVisible = $state(false)
+  let noticeTimer: ReturnType<typeof setTimeout>
+  let pendingWild = $state<number | null>(null)
+  let activities = $state<{ text: string; key: number }[]>([])
+  let alive = true
+  let me = $derived(room.state.players.find((p) => p.id === room.state.you))
+  let bots = $derived(room.bots ?? {})
+  let botCount = $derived(Object.keys(bots).length)
+  let botDifficulty = $derived(
+    botCount ? botDifficultyNames[Object.values(bots)[0].difficulty] : '',
+  )
+  let botThinking = $derived(
+    room.state.phase === 'playing' &&
+      !!room.state.turn &&
+      !!bots[room.state.turn],
+  )
+  let turnPlayer = $derived(
+    room.state.players.find((p) => p.id === room.state.turn),
+  )
+  let myTurn = $derived(
+    room.state.turn === room.state.you && room.state.phase === 'playing',
+  )
+  let selectedCard = $derived(me?.hand?.find((card) => card.id === selected))
+  let playable = $derived(
+    selectedCard ? suggestsPlayable(selectedCard, room) : false,
+  )
+  let remaining = $derived(
+    me?.uno ? Math.max(0, Date.parse(me.uno.deadline) - now) : 0,
+  )
+  let panelTitle = $derived(
+    {
+      room: botCount ? '对局信息' : '房间',
+      rules: '本局规则',
+      color: '选择颜色',
+      '': '',
+    }[retainedPanel],
+  )
+  $effect.pre(() => {
+    if (panel) retainedPanel = panel
+  })
+  function showNotice(text: string) {
+    notice = text
+    noticeVisible = true
+    clearTimeout(noticeTimer)
+    noticeTimer = setTimeout(() => {
+      noticeVisible = false
+    }, 3500)
+  }
+
+  function attach(next: GameTransport) {
+    unsubscribe()
+    port?.dispose()
+    port = next
+    busy = false
+    selected = null
+    activities = []
+    let previous: Room | undefined
+    unsubscribe = next.subscribe((snapshot) => {
+      const current = snapshot.room
+      if (previous && current.state.version > previous.state.version) {
+        const unoNotice = unoDeclarationNotice(previous.state, current.state)
+        if (unoNotice) showNotice(unoNotice)
+        let text = ''
+        const actor = previous.state.players.find(
+          (p) => p.id === previous!.state.turn,
+        )
+        const nextMe = current.state.players.find(
+          (p) => p.id === current.state.you,
+        )
+        const prevMe = previous.state.players.find(
+          (p) => p.id === previous!.state.you,
+        )
+        if (unoNotice) text = unoNotice
+        else if (
+          current.state.top_card?.id !== previous.state.top_card?.id &&
+          current.state.top_card
+        )
+          text = `${actor?.id === current.state.you ? '你' : actor?.name || '玩家'}打出${cardName(current.state.top_card)}`
+        else if (nextMe && prevMe && nextMe.hand_count > prevMe.hand_count)
+          text = `你摸了 ${nextMe.hand_count - prevMe.hand_count} 张牌`
+        else if (
+          current.state.phase === 'playing' &&
+          previous.state.phase === 'lobby'
+        )
+          text = '发牌完成'
+        if (text)
+          activities = [
+            { text, key: current.state.version },
+            ...activities,
+          ].slice(0, 4)
+        if (current.state.turn !== previous.state.turn) selected = null
+      }
+      room = current
+      connection = snapshot.connection
+      previous = current
+    })
+  }
+  untrack(() => attach(new OnlineTransport(api, session, room, onSessionLost)))
+
+  async function run(
+    action: Action,
+    body: ActionBody = {},
+    silent = false,
+  ): Promise<boolean> {
+    const target = port
+    const independent = action === 'uno' || action === 'uno-penalty'
+    if (busy && !independent) return false
+    if (!independent) busy = true
+    try {
+      await target.act(action, body)
+      if (target !== port || !alive) return false
+      if (action === 'play') selected = null
+      if (action === 'uno-penalty') showNotice('漏喊 UNO，罚摸一张。')
+      return true
+    } catch (error) {
+      if (target === port && alive && !silent) showNotice(errorMessage(error))
+      if (silent) throw error
+      return false
+    } finally {
+      if (target === port && !independent) busy = false
+    }
+  }
+
+  function selectCard(card: Card) {
+    selected = selected === card.id ? null : card.id
+    if (!suggestsPlayable(card, room))
+      showNotice(
+        room.state.can_pass
+          ? '摸牌后只能出刚摸到的那张，或选择跳过。'
+          : '提示：优先选择相同颜色、数字，或万能牌。',
+      )
+  }
+  function playSelected() {
+    if (!selectedCard || busy) return
+    if (selectedCard.color === 'wild') {
+      pendingWild = selectedCard.id
+      panel = 'color'
+    } else void run('play', { card_id: selectedCard.id })
+  }
+  function chooseColor(color: PlayColor) {
+    if (panel !== 'color' || busy || !myTurn) return
+    const id = pendingWild
+    panel = ''
+    pendingWild = null
+    if (id !== null) void run('play', { card_id: id, color })
+  }
+  function sayUNO() {
+    if (me?.uno) void run('uno', { window_id: me.uno.id })
+  }
+  function onKey(event: KeyboardEvent) {
+    const target = event.target as HTMLElement
+    if (
+      event.code !== 'Space' ||
+      event.repeat ||
+      document.querySelector('dialog[open]') ||
+      target.closest('input, textarea, select, [contenteditable="true"]')
+    )
+      return
+    if (me?.uno) {
+      event.preventDefault()
+      sayUNO()
+    }
+  }
+
+  // 仅 UNO 操作按窗口 ID 幂等重试；普通动作不自动重发。
+  $effect(() => {
+    const window = me?.uno
+    const target = port
+    if (!window) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout>
+    async function settle() {
+      if (cancelled || target !== port) return
+      try {
+        await run('uno-penalty', { window_id: window!.id }, true)
+      } catch (error) {
+        if (
+          !cancelled &&
+          error instanceof ApiError &&
+          ['uno_too_early', 'network_error', 'version_conflict'].includes(
+            error.code,
+          )
+        )
+          timer = setTimeout(() => void settle(), 500)
+      }
+    }
+    timer = setTimeout(
+      () => void settle(),
+      Math.max(0, Date.parse(window.deadline) - Date.now()) + 80,
+    )
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  })
+
+  async function invite(codeOnly = false) {
+    const text = codeOnly
+      ? room.id
+      : `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}`
+    try {
+      await navigator.clipboard.writeText(text)
+      showNotice(codeOnly ? '房间号已复制。' : '邀请链接已复制。')
+    } catch {
+      showNotice(`房间号：${room.id}，可在房间面板中选中复制。`)
+    }
+  }
+  onMount(() => {
+    window.scrollTo(0, 0)
+    const ticker = setInterval(() => {
+      now = Date.now()
+    }, 50)
+    return () => clearInterval(ticker)
+  })
+  onDestroy(() => {
+    alive = false
+    unsubscribe()
+    port?.dispose()
+    clearTimeout(noticeTimer)
+  })
+</script>
+
+<svelte:window onkeydown={onKey} />
+<main class="game-layout" class:reconnecting={connection === 'reconnecting'}>
+  <section class="game-panel" aria-label="UNOur 游戏">
+    <div class="room-heading">
+      <div>
+        <div class="eyebrow">
+          <span class="tiny-leaf"><Icon name="leaf" size={12} /></span>牌局
+        </div>
+        <h1>
+          {botCount ? '人机对局' : '联机牌局'}<span class="room-tag"
+            >{room.state.players.length} 人</span
+          >
+        </h1>
+      </div>
+      <div class="room-tools">
+        <button
+          class="icon-button"
+          aria-label="查看本局规则"
+          onclick={() => {
+            panel = 'rules'
+          }}><Icon name="info" size={19} /></button
+        ><button
+          class="icon-button"
+          aria-label={botCount ? '查看本局信息' : '打开房间与邀请'}
+          onclick={() => {
+            panel = 'room'
+          }}><Icon name="users" size={19} /></button
+        >
+      </div>
+    </div>
+    <TableBoard
+      {room}
+      {busy}
+      {remaining}
+      {reduced}
+      ondraw={() => void run('draw')}
+      onuno={sayUNO}
+    />
+    <div class="turn-strip" class:your-turn={myTurn} role="status">
+      <span class="turn-indicator"><i></i></span>
+      <div>
+        <strong
+          >{room.state.phase === 'lobby'
+            ? '等待开局'
+            : room.state.phase === 'finished'
+              ? '本局已结束'
+              : myTurn
+                ? '轮到你出牌'
+                : botThinking
+                  ? '电脑正在思考…'
+                  : `等待${turnPlayer?.name || '玩家'}出牌`}</strong
+        ><span
+          >{room.state.phase === 'lobby'
+            ? `房间内 ${room.state.players.length} 位玩家`
+            : room.state.phase === 'finished'
+              ? '查看本局结果'
+              : myTurn
+                ? room.state.can_pass
+                  ? '可以打出刚摸到的牌，或跳过'
+                  : room.state.pending_draw
+                    ? `承受 ${room.state.pending_draw} 张罚牌，或按规则接牌`
+                    : `出${colorNames[room.state.active_color || 'red']}、相同牌面，或万能牌`
+                : '等待当前玩家完成操作'}</span
+        >
+      </div>
+      <span class="turn-side"
+        >{room.state.phase === 'playing'
+          ? '进行中'
+          : room.state.phase === 'finished'
+            ? '已结束'
+            : '未开始'}</span
+      >
+    </div>
+    <Hand
+      {room}
+      {selected}
+      {sorted}
+      {busy}
+      {reduced}
+      onselect={selectCard}
+      onsort={() => {
+        sorted = !sorted
+      }}
+    />
+    <div class="action-bar">
+      {#if room.state.phase === 'lobby'}
+        {#if botCount}
+          <button class="button primary" onclick={onleave}
+            >返回大厅<Icon name="arrow" size={18} /></button
+          >
+        {:else}
+          <button class="button secondary" onclick={() => void invite()}
+            ><Icon name="link" size={17} />邀请朋友</button
+          ><button
+            class="button primary"
+            disabled={room.host_id !== room.state.you ||
+              room.state.players.length < 2 ||
+              busy}
+            onclick={() => void run('start')}
+            >{busy
+              ? '正在发牌…'
+              : room.host_id === room.state.you
+                ? '开始游戏'
+                : '等待房主开局'}<Icon name="arrow" size={18} /></button
+          >
+        {/if}
+      {:else if room.state.phase === 'finished'}
+        <button
+          class="button secondary"
+          onclick={() => {
+            panel = 'room'
+          }}
+          ><Icon name="users" size={17} />{botCount
+            ? '对局信息'
+            : '房间信息'}</button
+        ><button class="button primary" onclick={onleave}
+          >返回大厅<Icon name="arrow" size={18} /></button
+        >
+      {:else}
+        <button
+          class="button secondary draw-button"
+          disabled={!myTurn || busy}
+          onclick={() =>
+            room.state.can_pass ? void run('pass') : void run('draw')}
+          ><Icon name={room.state.can_pass ? 'arrow' : 'plus'} size={19} />{room
+            .state.can_pass
+            ? '跳过'
+            : room.state.pending_draw
+              ? `摸 ${room.state.pending_draw} 张`
+              : '摸一张'}</button
+        >
+        {#if room.state.challenge_target && myTurn}<button
+            class="challenge-button"
+            onclick={() => void run('challenge')}
+            disabled={busy}
+            aria-label="质疑加四"
+            ><Icon name="shield" size={19} /><span>质疑</span></button
+          >{/if}
+        <button
+          class="button primary play-button"
+          disabled={!myTurn || !selectedCard || busy}
+          onclick={playSelected}
+          >{busy
+            ? '正在确认…'
+            : !myTurn
+              ? '等待回合'
+              : selectedCard
+                ? playable
+                  ? '打出这张牌'
+                  : '尝试打出这张'
+                : '选择一张牌'}<Icon name="arrow" size={19} /></button
+        >
+      {/if}
+    </div>
+    <div class="panel-footnote">
+      <span class="mini-colors" aria-hidden="true"
+        ><i></i><i></i><i></i><i></i></span
+      >
+    </div>
+  </section>
+  <SideRail
+    {room}
+    {activities}
+    {invite}
+    openRules={() => {
+      panel = 'rules'
+    }}
+  />
+</main>
+<footer class="desktop-footer">
+  <span>UNOur</span><button
+    class="text-button"
+    onclick={() => {
+      panel = 'rules'
+    }}>游戏规则<Icon name="arrow" size={13} /></button
+  >
+</footer>
+<output
+  class="notice"
+  class:visible={noticeVisible}
+  aria-live="polite"
+  aria-hidden={!noticeVisible}
+  ><span class="notice-icon"><Icon name="info" size={16} /></span
+  >{notice}</output
+>
+
+<Sheet
+  open={!!panel}
+  title={panelTitle}
+  description={retainedPanel === 'room'
+    ? botCount
+      ? '本局电脑对手与规则。'
+      : '分享房间号或链接以邀请玩家。'
+    : retainedPanel === 'color'
+      ? '选择接下来的出牌颜色。'
+      : ''}
+  {reduced}
+  onclose={() => {
+    panel = ''
+    pendingWild = null
+  }}
+>
+  {#if retainedPanel === 'color'}
+    <div class="color-options">
+      {#each ['red', 'yellow', 'green', 'blue'] as color}<button
+          class={`color-option ${color}`}
+          onclick={() => chooseColor(color as PlayColor)}
+          ><span>{{ red: '●', yellow: '◆', green: '■', blue: '▲' }[color]}</span
+          >{colorNames[color as PlayColor]}</button
+        >{/each}
+    </div>
+  {:else if retainedPanel === 'rules'}
+    <RulesPanel
+      {room}
+      onclose={() => {
+        panel = ''
+      }}
+    />
+  {:else if botCount}
+    <div class="match-facts">
+      <div><span>对局方式</span><strong>人机对战</strong></div>
+      <div><span>电脑数量</span><strong>{botCount} 台</strong></div>
+      <div><span>对手难度</span><strong>{botDifficulty}</strong></div>
+      <div>
+        <span>本局规则</span><strong
+          >{room.rules.some((rule) => rule.name === 'stacking')
+            ? '罚牌叠加'
+            : '经典玩法'}</strong
+        >
+      </div>
+    </div>
+    <div class="account-separator"></div>
+    <button class="button secondary full" onclick={onleave}
+      ><Icon name="back" size={17} />返回大厅</button
+    >
+  {:else}
+    <div class="invite-code">
+      <span>你的房间号</span><strong>{room.id}</strong><button
+        class="button secondary"
+        onclick={() => void invite(true)}
+        ><Icon name="copy" size={16} />复制房间号</button
+      >
+    </div>
+    <button class="button primary full" onclick={() => void invite()}
+      ><Icon name="link" size={17} />复制邀请链接</button
+    >
+    <p class="form-tip">朋友登录账户后即可加入。</p>
+    <div class="account-separator"></div>
+    <button class="button secondary full" onclick={onleave}
+      ><Icon name="back" size={17} />返回大厅</button
+    >
+  {/if}
+</Sheet>

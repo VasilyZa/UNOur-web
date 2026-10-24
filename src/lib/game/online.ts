@@ -10,7 +10,6 @@ import type {
 
 /** 传输层独占轮询生命周期；命令不会因网络失败自动重试。 */
 export class OnlineTransport implements GameTransport {
-  readonly mode = 'online' as const
   private listeners = new Set<(snapshot: Snapshot) => void>()
   private timer?: ReturnType<typeof setTimeout>
   private abort = new AbortController()
@@ -23,6 +22,7 @@ export class OnlineTransport implements GameTransport {
     private api: Pick<ApiClient, 'read' | 'action'>,
     private session: Session,
     private room: Room,
+    private onSessionLost?: (error: ApiError) => void,
   ) {}
 
   subscribe(listener: (snapshot: Snapshot) => void): () => void {
@@ -36,7 +36,12 @@ export class OnlineTransport implements GameTransport {
     if (this.disposed || room.state.version < this.room.state.version) return
     const changed =
       room.state.version !== this.room.state.version ||
-      connection !== this.connection
+      connection !== this.connection ||
+      room.state.players.some(
+        (player) =>
+          room.profiles?.[player.id]?.avatar_url !==
+          this.room.profiles?.[player.id]?.avatar_url,
+      )
     this.room = room
     this.connection = connection
     if (changed)
@@ -68,8 +73,12 @@ export class OnlineTransport implements GameTransport {
         await this.api.read(this.session, this.abort.signal),
         'connected',
       )
-    } catch {
-      this.publish(this.room, 'reconnecting')
+    } catch (error) {
+      if (this.disposed) return
+      if (error instanceof ApiError && [401, 404].includes(error.status)) {
+        this.dispose()
+        this.onSessionLost?.(error)
+      } else this.publish(this.room, 'reconnecting')
     } finally {
       this.polling = false
       this.schedule()
@@ -94,6 +103,11 @@ export class OnlineTransport implements GameTransport {
       )
       this.publish(response.room, 'connected')
     } catch (error) {
+      if (this.disposed) throw error
+      if (error instanceof ApiError && [401, 404].includes(error.status)) {
+        this.dispose()
+        this.onSessionLost?.(error)
+      }
       // 先同步再让玩家决定，禁止盲目重发可能已经提交的摸牌/出牌。
       if (!this.disposed) {
         try {
