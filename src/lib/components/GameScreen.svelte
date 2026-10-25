@@ -12,6 +12,11 @@
   import { OnlineTransport } from '../game/online'
   import { unoDeclarationNotice } from '../game/announcements'
   import {
+    allowedWildColors,
+    matchingHint,
+    readRuleOptions,
+  } from '../game/rules'
+  import {
     cardName,
     colorNames,
     suggestsPlayable,
@@ -79,6 +84,9 @@
     room.state.turn === room.state.you && room.state.phase === 'playing',
   )
   let selectedCard = $derived(me?.hand?.find((card) => card.id === selected))
+  let wildColors = $derived(allowedWildColors(room))
+  let playAnyAfterDraw = $derived(readRuleOptions(room.rules).playAnyAfterDraw)
+  const colors: PlayColor[] = ['red', 'yellow', 'green', 'blue']
   let playable = $derived(
     selectedCard ? suggestsPlayable(selectedCard, room) : false,
   )
@@ -198,8 +206,16 @@
     if (!suggestsPlayable(card, room))
       showNotice(
         room.state.can_pass
-          ? '摸牌后只能出刚摸到的那张，或选择跳过。'
-          : '提示：优先选择相同颜色、数字，或万能牌。',
+          ? playAnyAfterDraw
+            ? '这张牌不符合本局规则，请选择其他手牌或跳过。'
+            : '摸牌后只能出刚摸到的那张，或选择跳过。'
+          : room.state.pending_draw
+            ? '这张牌不能接当前罚牌，请按本局规则接牌或摸牌。'
+            : matchingHint(
+                room.rules,
+                room.state.active_color,
+                room.state.top_card?.kind,
+              ),
       )
   }
   function playSelected() {
@@ -210,7 +226,8 @@
     } else void run('play', { card_id: selectedCard.id })
   }
   function chooseColor(color: PlayColor) {
-    if (panel !== 'color' || busy || !myTurn) return
+    if (panel !== 'color' || busy || !myTurn || !wildColors.includes(color))
+      return
     const id = pendingWild
     panel = ''
     pendingWild = null
@@ -384,10 +401,16 @@
               ? '查看本局结果'
               : myTurn
                 ? room.state.can_pass
-                  ? '可以打出刚摸到的牌，或跳过'
+                  ? playAnyAfterDraw
+                    ? '可以出任意符合规则的手牌，或跳过'
+                    : '可以打出刚摸到的牌，或跳过'
                   : room.state.pending_draw
                     ? `承受 ${room.state.pending_draw} 张罚牌，或按规则接牌`
-                    : `出${colorNames[room.state.active_color || 'red']}、相同牌面，或万能牌`
+                    : matchingHint(
+                        room.rules,
+                        room.state.active_color,
+                        room.state.top_card?.kind,
+                      )
                 : '等待当前玩家完成操作'}</span
         >
       </div>
@@ -564,13 +587,24 @@
 >
   {#if retainedPanel === 'color'}
     <div class="color-options">
-      {#each ['red', 'yellow', 'green', 'blue'] as color}<button
+      {#each colors as color}<button
           class={`color-option ${color}`}
-          onclick={() => chooseColor(color as PlayColor)}
+          disabled={busy || !wildColors.includes(color)}
+          aria-label={color === room.state.active_color
+            ? `${colorNames[color]}，${wildColors.includes(color) ? '保留当前色' : '本局必须换色'}`
+            : colorNames[color]}
+          onclick={() => chooseColor(color)}
           ><span>{{ red: '●', yellow: '◆', green: '■', blue: '▲' }[color]}</span
-          >{colorNames[color as PlayColor]}</button
+          >{color === room.state.active_color && wildColors.includes(color)
+            ? '保留当前色'
+            : colorNames[color]}</button
         >{/each}
     </div>
+    <p class="color-rule-note">
+      {wildColors.length === 4
+        ? '本局允许保留当前颜色。'
+        : '本局必须选择其他颜色。'}
+    </p>
   {:else if retainedPanel === 'rules'}
     <RulesPanel
       {room}

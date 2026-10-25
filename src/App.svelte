@@ -12,6 +12,7 @@
   import { AccountRequests } from './lib/account/requests'
   import { ApiClient, ApiError, errorMessage } from './lib/game/api'
   import { joinFromLobby } from './lib/game/entry'
+  import { buildRuleSpecs, defaultRuleOptions } from './lib/game/rules'
   import { readSession, saveSession, forgetSession } from './lib/game/session'
   import {
     restoreRoomSession,
@@ -50,7 +51,7 @@
   let spectate = $state(false)
   let roomCode = $state(''),
     roomMode = $state<'create' | 'join' | 'solo'>('solo'),
-    stacking = $state(false),
+    ruleOptions = $state(defaultRuleOptions()),
     botCount = $state(2),
     botDifficulty = $state<BotDifficulty>('normal')
   let panel = $state<'' | 'settings' | 'account'>(''),
@@ -215,15 +216,8 @@
     joining = true
     roomError = ''
     try {
-      const rules = stacking
-        ? [
-            { name: 'matching' },
-            { name: 'actions' },
-            { name: 'draw' },
-            { name: 'challenge' },
-            { name: 'stacking' },
-          ]
-        : undefined
+      const rules =
+        roomMode === 'join' ? undefined : buildRuleSpecs(ruleOptions)
       let result: JoinResult
       if (roomMode === 'solo') {
         result = await api.solo(accountID, botCount, botDifficulty, rules)
@@ -470,7 +464,7 @@
             bind:code={roomCode}
             bind:mode={roomMode}
             bind:spectate
-            bind:stacking
+            bind:rules={ruleOptions}
             bind:botCount
             bind:difficulty={botDifficulty}
             busy={joining}

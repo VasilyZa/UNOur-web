@@ -167,7 +167,26 @@ export function cardName(card: Card): string {
 export function suggestsPlayable(card: Card, room: Room): boolean {
   const state = room.state
   if (state.phase !== 'playing' || state.turn !== state.you) return false
-  if (state.can_pass && state.drawn_card_id && card.id !== state.drawn_card_id)
+  const playAnyAfterDraw = room.rules.some(
+    (rule) =>
+      rule.name === 'draw' && rule.options?.play_any_after_draw === true,
+  )
+  if (
+    state.can_pass &&
+    state.drawn_card_id &&
+    card.id !== state.drawn_card_id &&
+    !playAnyAfterDraw
+  )
+    return false
+  if (
+    card.kind === 'wild_draw_four' &&
+    !room.rules.some((rule) => rule.name === 'challenge') &&
+    state.players
+      .find((player) => player.id === state.you)
+      ?.hand?.some(
+        (held) => held.color !== 'wild' && held.color === state.active_color,
+      )
+  )
     return false
   if (state.pending_draw) {
     const stacking = room.rules.find((rule) => rule.name === 'stacking')
@@ -184,10 +203,15 @@ export function suggestsPlayable(card: Card, room: Room): boolean {
       (!!stacking.options?.different_colors || sameColor)
     )
   }
-  const matching = room.rules.find((rule) => rule.name === 'matching')?.options
+  const matchingRule = room.rules.find((rule) => rule.name === 'matching')
+  if (!matchingRule) return false
+  const matching = matchingRule.options
+  const followsWild =
+    state.top_card?.kind === 'wild' || state.top_card?.kind === 'wild_draw_four'
   return (
     card.color === 'wild' ||
-    (matching?.same_color !== false && card.color === state.active_color) ||
+    ((matching?.same_color !== false || followsWild) &&
+      card.color === state.active_color) ||
     (matching?.same_value !== false &&
       card.kind === state.top_card?.kind &&
       (card.kind !== 'number' ||

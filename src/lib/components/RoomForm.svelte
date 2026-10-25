@@ -1,11 +1,13 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import RuleSettings from './RuleSettings.svelte'
+  import { defaultRuleOptions, type RoomRuleOptions } from '../game/rules'
   import type { BotDifficulty } from '../game/types'
   let {
     spectate = $bindable(false),
     code = $bindable(''),
     mode = $bindable('solo'),
-    stacking = $bindable(false),
+    rules = $bindable(defaultRuleOptions()),
     botCount = $bindable(2),
     difficulty = $bindable<BotDifficulty>('normal'),
     busy,
@@ -15,7 +17,7 @@
     spectate?: boolean
     code?: string
     mode?: 'create' | 'join' | 'solo'
-    stacking?: boolean
+    rules?: RoomRuleOptions
     botCount?: number
     difficulty?: BotDifficulty
     busy: boolean
@@ -86,12 +88,7 @@
       </div>
       <p class="solo-tip">根据出牌记录与局势思考。</p>
     {/if}
-    <label class="rule-toggle">
-      <div>
-        <strong>允许罚牌叠加</strong><span>允许在 +2 上继续出 +2</span>
-      </div>
-      <input type="checkbox" bind:checked={stacking} disabled={busy} />
-    </label>
+    <RuleSettings bind:options={rules} {busy} />
   {/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
   <button class="button primary full" type="submit" disabled={busy}

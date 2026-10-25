@@ -78,6 +78,16 @@
 .color-option > span {
   font-size: 23px;
 }
+.color-option:disabled {
+  opacity: 0.35;
+  transform: none;
+}
+.color-rule-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 15px 0 0;
+}
 .color-option.red {
   background: #e77c6a;
 }
@@ -408,7 +418,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
   .setting-link:hover,
-  .color-option:hover {
+  .color-option:not(:disabled):hover {
     filter: brightness(1.06);
   }
 }

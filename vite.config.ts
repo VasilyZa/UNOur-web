@@ -5,7 +5,8 @@ import { defineConfig } from 'vitest/config'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   plugins: [svelte()],
-  test: { setupFiles: ['./test/backend.ts'] },
+  // Integration files share a real server with four password-hashing slots.
+  test: { setupFiles: ['./test/backend.ts'], maxWorkers: 2 },
   server: {
     host: '0.0.0.0',
     proxy: {
