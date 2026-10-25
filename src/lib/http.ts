@@ -1,15 +1,18 @@
 export class ApiError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-    public readonly status = 0,
-  ) {
+  readonly code: string
+  readonly status: number
+  constructor(code: string, message: string, status = 0) {
     super(message)
+    this.code = code
+    this.status = status
     this.name = 'ApiError'
   }
 }
 
 const messages: Record<string, string> = {
+  admin_unauthorized: '管理会话已过期，请重新登录。',
+  admin_credentials: '管理密码不正确。',
+  admin_csrf: '管理凭证已变化，请刷新页面后重试。',
   room_closed: '房间已解散或已过期。',
   spectator_read_only: '观战者不能操作牌局；可报名下一局。',
   spectator_required: '此操作仅适用于观战者。',
@@ -66,6 +69,7 @@ export class HttpClient {
     token?: string,
     signal?: AbortSignal,
     accountId?: string,
+    extraHeaders: Record<string, string> = {},
   ): Promise<T> {
     const abort = new AbortController()
     const cancel = () => abort.abort()
@@ -85,6 +89,7 @@ export class HttpClient {
               }),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(accountId ? { 'X-Account-ID': accountId } : {}),
+          ...extraHeaders,
         },
         body:
           body === undefined
@@ -96,7 +101,9 @@ export class HttpClient {
         signal: abort.signal,
         cache: 'no-store',
       })
-      const data = await response.json().catch(() => null)
+      const data = (await response.json().catch(() => null)) as {
+        error?: { code?: string; message?: string }
+      } | null
       if (!response.ok)
         throw new ApiError(
           data?.error?.code || 'server_error',

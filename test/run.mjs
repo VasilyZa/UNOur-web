@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createInterface } from 'node:readline'
+import { randomBytes } from 'node:crypto'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const backend = process.env.UNO_BACKEND_DIR || resolve(root, '../unour')
 let directory, server
+let adminPassword = process.env.UNO_TEST_ADMIN_PASSWORD || ''
 
 function exited(child) {
   return new Promise((resolve, reject) => {
@@ -28,6 +30,16 @@ async function origin() {
     throw new Error(
       '无法构建真实 Go 后端；可通过 UNO_BACKEND_DIR 指定后端目录。',
     )
+  adminPassword = randomBytes(24).toString('base64url')
+  const adminConfig = join(directory, 'admin.json')
+  const configure = spawn(
+    'go',
+    ['run', '-buildvcs=false', './cmd/admin-config', '-out', adminConfig],
+    { cwd: backend, stdio: ['pipe', 'ignore', 'inherit'] },
+  )
+  configure.stdin.end(adminPassword)
+  if (await exited(configure))
+    throw new Error('无法创建隔离的管理后台测试配置。')
   server = spawn(binary, [], {
     cwd: backend,
     env: {
@@ -36,6 +48,7 @@ async function origin() {
       UNO_DB_PATH: join(directory, 'test.db'),
       UNO_ALLOWED_ORIGINS: 'http://localhost:5173',
       UNO_SECURE_COOKIES: 'false',
+      UNO_ADMIN_CONFIG: adminConfig,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
@@ -76,7 +89,11 @@ try {
     ],
     {
       cwd: root,
-      env: { ...process.env, UNO_TEST_ORIGIN: target },
+      env: {
+        ...process.env,
+        UNO_TEST_ORIGIN: target,
+        UNO_TEST_ADMIN_PASSWORD: adminPassword,
+      },
       stdio: 'inherit',
     },
   )
