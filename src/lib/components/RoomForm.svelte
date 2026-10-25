@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte'
   import type { BotDifficulty } from '../game/types'
   let {
+    spectate = $bindable(false),
     code = $bindable(''),
     mode = $bindable('solo'),
     stacking = $bindable(false),
@@ -11,6 +12,7 @@
     error,
     onsubmit,
   }: {
+    spectate?: boolean
     code?: string
     mode?: 'create' | 'join' | 'solo'
     stacking?: boolean
@@ -55,6 +57,12 @@
         disabled={busy}
       />
     </label>
+    <label class="rule-toggle">
+      <div>
+        <strong>仅观战</strong><span>不占座位，不参与再来一局投票</span>
+      </div>
+      <input type="checkbox" bind:checked={spectate} disabled={busy} />
+    </label>
   {:else}
     {#if mode === 'solo'}
       <div class="solo-options">
@@ -90,14 +98,16 @@
     >{busy
       ? '正在进入…'
       : mode === 'join'
-        ? '加入房间'
+        ? spectate
+          ? '进入观战'
+          : '加入房间'
         : mode === 'create'
           ? '创建房间'
           : '开始人机对战'}<Icon name="arrow" size={18} /></button
   >
   <p class="form-tip">
     {mode === 'join'
-      ? '房间号区分大小写。'
+      ? '牌局已开始时，加入者先观战，下一局入座。'
       : mode === 'create'
         ? '创建后可复制房间号或邀请链接。'
         : `你与 ${botCount} 名电脑玩家开始对局。`}

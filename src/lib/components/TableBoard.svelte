@@ -82,7 +82,7 @@
   </div>
   {#if botCount}
     <div class="bot-match-line" aria-live="polite">
-      <span>人机对局 · {botDifficulty} · {botCount} 台电脑</span>
+      <span>电脑对手 · {botDifficulty} · {botCount} 台电脑</span>
       {#if botThinking}<span class="bot-thinking"><i></i>电脑正在思考…</span
         >{/if}
     </div>
@@ -133,17 +133,23 @@
           <div class="deck-wrap">
             <div class="deck-layer one" aria-hidden="true"></div>
             <div class="deck-layer two" aria-hidden="true"></div>
-            <button
-              class="deck-card"
-              aria-label={state.pending_draw
-                ? `承受 ${state.pending_draw} 张罚牌`
-                : '摸一张牌'}
-              disabled={!myTurn || busy || state.can_pass}
-              onclick={ondraw}
-              ><CardFace back /><span class="deck-plus"
-                ><Icon name="plus" size={15} /></span
-              ></button
-            >
+            {#if room.role === 'spectator'}
+              <div class="deck-card spectator-deck" aria-hidden="true">
+                <CardFace back />
+              </div>
+            {:else}
+              <button
+                class="deck-card"
+                aria-label={state.pending_draw
+                  ? `承受 ${state.pending_draw} 张罚牌`
+                  : '摸一张牌'}
+                disabled={!myTurn || busy || state.can_pass}
+                onclick={ondraw}
+                ><CardFace back /><span class="deck-plus"
+                  ><Icon name="plus" size={15} /></span
+                ></button
+              >
+            {/if}
           </div>
           <span class="pile-label"
             >牌堆 <span>{state.draw_pile_count}</span></span
@@ -367,6 +373,9 @@
     cursor: pointer;
     box-shadow: 0 8px 20px var(--shadow);
     transition: transform 120ms var(--ease-out);
+  }
+  .spectator-deck {
+    cursor: default;
   }
   .deck-card:active:not(:disabled) {
     transform: scale(0.97);

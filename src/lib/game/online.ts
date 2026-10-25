@@ -33,9 +33,15 @@ export class OnlineTransport implements GameTransport {
   }
 
   private publish(room: Room, connection: Snapshot['connection']): void {
-    if (this.disposed || room.state.version < this.room.state.version) return
+    if (
+      this.disposed ||
+      (room.revision ?? room.state.version) <
+        (this.room.revision ?? this.room.state.version)
+    )
+      return
     const changed =
-      room.state.version !== this.room.state.version ||
+      (room.revision ?? room.state.version) !==
+        (this.room.revision ?? this.room.state.version) ||
       connection !== this.connection ||
       room.state.players.some(
         (player) =>
@@ -92,9 +98,10 @@ export class OnlineTransport implements GameTransport {
       throw new ApiError('action_in_progress', '上一项操作还在确认中。')
     if (!independent) this.writing = true
     try {
-      const command = independent
-        ? body
-        : { ...body, expected_version: this.room.state.version }
+      const command =
+        independent || action === 'rematch' || action === 'participation'
+          ? body
+          : { ...body, expected_version: this.room.state.version }
       const response = await this.api.action(
         this.session,
         action,

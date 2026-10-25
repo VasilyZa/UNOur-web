@@ -25,7 +25,8 @@
     <h2>{botCount ? '人机对战' : 'UNO 在线牌桌'}</h2>
     <p>
       {#if botCount}
-        你与 {botCount} 台电脑<br />{botDifficulty}难度 · 标准 108 张牌
+        {room.state.players.length - botCount} 位玩家与 {botCount} 台电脑<br
+        />{botDifficulty}难度 · 标准 108 张牌
       {:else}
         2–10 人<br />标准 108 张牌
       {/if}
@@ -39,17 +40,15 @@
       <h3>{botCount ? '对局信息' : '房间信息'}</h3>
       <span class="small-badge">{botCount ? '人机对局' : '联机中'}</span>
     </div>
-    {#if !botCount}
-      <button
-        class="room-id"
-        onclick={() => void invite(true)}
-        aria-label="复制房间号"
-        ><span>ROOM</span><strong>{room.id}</strong><Icon
-          name="copy"
-          size={15}
-        /></button
-      >
-    {/if}
+    <button
+      class="room-id"
+      onclick={() => void invite(true)}
+      aria-label="复制房间号"
+      ><span>ROOM</span><strong>{room.id}</strong><Icon
+        name="copy"
+        size={15}
+      /></button
+    >
     <div class="room-facts">
       <span>规则</span><button class="text-button" onclick={openRules}
         >{room.rules.some((r) => r.name === 'stacking')
@@ -59,11 +58,9 @@
       {#if botCount}<span>电脑</span><span>{botCount} 台 · {botDifficulty}</span
         >{/if}
     </div>
-    {#if !botCount}
-      <button class="button rail-invite" onclick={() => void invite()}>
-        <Icon name="users" size={16} />邀请玩家
-      </button>
-    {/if}
+    <button class="button rail-invite" onclick={() => void invite()}>
+      <Icon name="users" size={16} />邀请玩家
+    </button>
   </section>
   <section class="rail-card activity-card">
     <div class="rail-title">

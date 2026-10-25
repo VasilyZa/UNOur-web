@@ -43,14 +43,40 @@ export class ApiClient extends HttpClient {
     )
   }
 
-  join(roomId: string, accountId: string): Promise<JoinResult> {
+  join(
+    roomId: string,
+    accountId: string,
+    spectate = false,
+  ): Promise<JoinResult> {
     return this.request(
-      `/rooms/${encodeURIComponent(roomId)}/players`,
+      `/rooms/${encodeURIComponent(roomId)}/${spectate ? 'spectators' : 'players'}`,
       'POST',
       {},
       undefined,
       undefined,
       accountId,
+    )
+  }
+
+  dissolve(session: Session): Promise<void> {
+    return this.request(
+      `/rooms/${encodeURIComponent(session.roomId)}`,
+      'DELETE',
+      undefined,
+      session.token,
+      undefined,
+      session.accountId,
+    )
+  }
+
+  leave(session: Session): Promise<unknown> {
+    return this.request(
+      `/rooms/${encodeURIComponent(session.roomId)}/leave`,
+      'POST',
+      {},
+      session.token,
+      undefined,
+      session.accountId,
     )
   }
 
@@ -71,6 +97,15 @@ export class ApiClient extends HttpClient {
     body: ActionBody = {},
     signal?: AbortSignal,
   ): Promise<{ room: Room }> {
+    if (action === 'rematch' || action === 'participation')
+      return this.request<Room>(
+        `/rooms/${encodeURIComponent(session.roomId)}/${action}`,
+        'POST',
+        body,
+        session.token,
+        signal,
+        session.accountId,
+      ).then((room) => ({ room }))
     return this.request(
       `/rooms/${encodeURIComponent(session.roomId)}/${action}`,
       'POST',

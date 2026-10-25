@@ -11,6 +11,7 @@
   import { AccountClient, type Account } from './lib/account/api'
   import { AccountRequests } from './lib/account/requests'
   import { ApiClient, ApiError, errorMessage } from './lib/game/api'
+  import { joinFromLobby } from './lib/game/entry'
   import { readSession, saveSession, forgetSession } from './lib/game/session'
   import {
     restoreRoomSession,
@@ -46,6 +47,7 @@
   let loadError = $state(''),
     roomError = $state(''),
     accountError = $state('')
+  let spectate = $state(false)
   let roomCode = $state(''),
     roomMode = $state<'create' | 'join' | 'solo'>('solo'),
     stacking = $state(false),
@@ -226,13 +228,17 @@
       if (roomMode === 'solo') {
         result = await api.solo(accountID, botCount, botDifficulty, rules)
       } else {
-        let id = roomCode.trim()
-        if (roomMode === 'create') {
-          id = (await api.create(accountID, rules)).id
-          roomCode = id
-          roomMode = 'join'
-        }
-        result = await api.join(id, accountID)
+        result = await joinFromLobby(
+          api,
+          accountID,
+          { mode: roomMode, roomId: roomCode, spectate, rules },
+          (id) => {
+            if (!alive || user?.id !== accountID || current !== revision) return
+            roomCode = id
+            roomMode = 'join'
+            spectate = false
+          },
+        )
       }
       if (!alive || user?.id !== accountID || current !== revision) return
       const session: Session = {
@@ -364,6 +370,7 @@
     }
     window.addEventListener('storage', onStorage)
     document.addEventListener('visibilitychange', onVisibility)
+    spectate = new URLSearchParams(location.search).get('watch') === '1'
     invitation = new URLSearchParams(location.search).get('room')
     if (invitation) {
       roomCode = invitation
@@ -438,6 +445,8 @@
         initialRoom={active.room}
         {reduced}
         onleave={() => {
+          if (active) forgetSession(active.session)
+          savedSession = null
           revision++
           active = null
           invitation = null
@@ -460,6 +469,7 @@
           <RoomForm
             bind:code={roomCode}
             bind:mode={roomMode}
+            bind:spectate
             bind:stacking
             bind:botCount
             bind:difficulty={botDifficulty}

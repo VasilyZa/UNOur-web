@@ -10,6 +10,11 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
+  room_closed: '房间已解散或已过期。',
+  spectator_read_only: '观战者不能操作牌局；可报名下一局。',
+  spectator_required: '此操作仅适用于观战者。',
+  roster_changed: '参赛名单刚刚有变化，请确认新名单后再同意。',
+  rematch_unavailable: '本局尚未结束，或已开始新的一局。',
   username_taken: '这个用户名已被使用。',
   invalid_username: '用户名需为 3–24 个汉字、英文字母、数字、下划线或短横线。',
   invalid_password: '密码需为 8–14 个字符。',
@@ -98,6 +103,7 @@ export class HttpClient {
           data?.error?.message || '服务暂时不可用，请稍后重试。',
           response.status,
         )
+      if (response.status === 204) return undefined as T
       if (!data)
         throw new ApiError('invalid_response', '服务器返回了无法识别的数据。')
       return data as T

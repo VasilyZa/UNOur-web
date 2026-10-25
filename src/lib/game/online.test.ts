@@ -109,3 +109,30 @@ describe('联机传输生命周期', () => {
     expect(listener).toHaveBeenCalledOnce()
   })
 })
+
+it('相同牌局版本下仍同步观战报名和再来一局投票，并拒绝迟到的旧房间修订', async () => {
+  vi.useFakeTimers()
+  const initial = { ...fixture(), revision: 10, round: 1 }
+  const updated = {
+    ...structuredClone(initial),
+    revision: 11,
+    rematch_votes: ['you'],
+  }
+  let resolve!: (room: Room) => void
+  const api = {
+    read: () =>
+      new Promise<Room>((done) => {
+        resolve = done
+      }),
+    action: async () => ({ room: updated }),
+  }
+  const online = new OnlineTransport(api, session, initial)
+  const votes: number[] = []
+  online.subscribe(({ room }) => votes.push(room.rematch_votes?.length ?? 0))
+  await vi.advanceTimersByTimeAsync(900)
+  await online.act('rematch', { agree: true, round: 1 })
+  resolve(initial)
+  await Promise.resolve()
+  expect(votes).toEqual([0, 1])
+  online.dispose()
+})

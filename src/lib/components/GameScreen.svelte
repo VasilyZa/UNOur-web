@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from 'svelte'
+  import RoomPanel from './RoomPanel.svelte'
+  import RematchPanel from './RematchPanel.svelte'
   import Icon from './Icon.svelte'
   import SideRail from './SideRail.svelte'
   import RulesPanel from './RulesPanel.svelte'
@@ -15,7 +17,6 @@
     suggestsPlayable,
     type Action,
     type ActionBody,
-    botDifficultyNames,
     type Card,
     type GameTransport,
     type PlayColor,
@@ -56,11 +57,15 @@
   let pendingWild = $state<number | null>(null)
   let activities = $state<{ text: string; key: number }[]>([])
   let alive = true
+  let spectator = $derived(room.role === 'spectator')
+  let observer = $derived(room.spectators?.find((p) => p.id === room.state.you))
   let me = $derived(room.state.players.find((p) => p.id === room.state.you))
   let bots = $derived(room.bots ?? {})
   let botCount = $derived(Object.keys(bots).length)
-  let botDifficulty = $derived(
-    botCount ? botDifficultyNames[Object.values(bots)[0].difficulty] : '',
+  let humanCount = $derived(
+    room.state.players.filter(
+      (p) => !bots[p.id] && !room.departed?.includes(p.id),
+    ).length,
   )
   let botThinking = $derived(
     room.state.phase === 'playing' &&
@@ -82,7 +87,7 @@
   )
   let panelTitle = $derived(
     {
-      room: botCount ? '对局信息' : '房间',
+      room: '房间',
       rules: '本局规则',
       color: '选择颜色',
       '': '',
@@ -143,12 +148,26 @@
           ].slice(0, 4)
         if (current.state.turn !== previous.state.turn) selected = null
       }
+      if (previous && current.round !== previous.round) {
+        selected = null
+        pendingWild = null
+        panel = ''
+        activities = []
+        showNotice('新的一局开始了。')
+      }
       room = current
       connection = snapshot.connection
       previous = current
     })
   }
-  untrack(() => attach(new OnlineTransport(api, session, room, onSessionLost)))
+  function sessionLost(error: ApiError) {
+    onSessionLost(
+      error.code === 'room_not_found'
+        ? new ApiError('room_closed', '房间已解散或已过期。', 404)
+        : error,
+    )
+  }
+  untrack(() => attach(new OnlineTransport(api, session, room, sessionLost)))
 
   async function run(
     action: Action,
@@ -247,16 +266,46 @@
     }
   })
 
-  async function invite(codeOnly = false) {
+  async function invite(codeOnly = false, watch = false) {
     const text = codeOnly
       ? room.id
-      : `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}`
+      : `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}${watch ? '&watch=1' : ''}`
     try {
       await navigator.clipboard.writeText(text)
-      showNotice(codeOnly ? '房间号已复制。' : '邀请链接已复制。')
+      showNotice(
+        codeOnly
+          ? '房间号已复制。'
+          : watch
+            ? '观战链接已复制。'
+            : '邀请链接已复制。',
+      )
     } catch {
       showNotice(`房间号：${room.id}，可在房间面板中选中复制。`)
     }
+  }
+  async function exitRoom(operation: () => Promise<unknown>) {
+    if (busy) return
+    busy = true
+    // Cancel polling before revoking our own session to avoid reporting a
+    // successful exit as an authentication failure in a racing GET.
+    port.dispose()
+    try {
+      await operation()
+      if (alive) onleave()
+    } catch (error) {
+      if (alive) {
+        attach(new OnlineTransport(api, session, room, sessionLost))
+        showNotice(errorMessage(error))
+      }
+    } finally {
+      if (alive) busy = false
+    }
+  }
+  function dissolve() {
+    return exitRoom(() => api.dissolve(session))
+  }
+  function leave() {
+    return exitRoom(() => api.leave(session))
   }
   onMount(() => {
     window.scrollTo(0, 0)
@@ -282,8 +331,12 @@
           <span class="tiny-leaf"><Icon name="leaf" size={12} /></span>牌局
         </div>
         <h1>
-          {botCount ? '人机对局' : '联机牌局'}<span class="room-tag"
-            >{room.state.players.length} 人</span
+          {botCount
+            ? humanCount > 1
+              ? '混合牌局'
+              : '人机对局'
+            : '联机牌局'}<span class="room-tag"
+            >{room.state.players.length - (room.departed?.length ?? 0)} 人</span
           >
         </h1>
       </div>
@@ -296,7 +349,7 @@
           }}><Icon name="info" size={19} /></button
         ><button
           class="icon-button"
-          aria-label={botCount ? '查看本局信息' : '打开房间与邀请'}
+          aria-label="打开房间与邀请"
           onclick={() => {
             panel = 'room'
           }}><Icon name="users" size={19} /></button
@@ -346,21 +399,57 @@
             : '未开始'}</span
       >
     </div>
-    <Hand
-      {room}
-      {selected}
-      {sorted}
-      {busy}
-      {reduced}
-      onselect={selectCard}
-      onsort={() => {
-        sorted = !sorted
-      }}
-    />
+    {#if room.state.phase === 'finished'}
+      <RematchPanel
+        {room}
+        {busy}
+        vote={(agree) =>
+          void run('rematch', {
+            agree,
+            round: room.round ?? 1,
+            roster_version: room.roster_version ?? 0,
+          })}
+      />
+    {:else if spectator}
+      <div class="spectator-note" role="status">
+        <strong>正在观战</strong><span
+          >{observer?.next_round
+            ? '已预约下一局席位，结算后需同意再来一局。'
+            : '观战不展示任何玩家手牌。'}</span
+        >
+      </div>
+    {:else}
+      <Hand
+        {room}
+        {selected}
+        {sorted}
+        {busy}
+        {reduced}
+        onselect={selectCard}
+        onsort={() => {
+          sorted = !sorted
+        }}
+      />
+    {/if}
     <div class="action-bar">
-      {#if room.state.phase === 'lobby'}
+      {#if spectator}
+        <button class="button secondary" onclick={() => (panel = 'room')}
+          >房间与邀请</button
+        >
+        <button
+          class="button primary"
+          disabled={busy}
+          onclick={() =>
+            void run('participation', { next_round: !observer?.next_round })}
+          >{observer?.next_round
+            ? '取消下局入座'
+            : room.state.phase === 'lobby'
+              ? '入座'
+              : '报名下一局'}</button
+        >
+      {:else if room.state.phase === 'lobby'}
         {#if botCount}
-          <button class="button primary" onclick={onleave}
+          <button class="button primary" onclick={() => void leave()}
             >返回大厅<Icon name="arrow" size={18} /></button
           >
         {:else}
@@ -388,7 +477,7 @@
           ><Icon name="users" size={17} />{botCount
             ? '对局信息'
             : '房间信息'}</button
-        ><button class="button primary" onclick={onleave}
+        ><button class="button primary" onclick={() => void leave()}
           >返回大厅<Icon name="arrow" size={18} /></button
         >
       {:else}
@@ -463,9 +552,7 @@
   open={!!panel}
   title={panelTitle}
   description={retainedPanel === 'room'
-    ? botCount
-      ? '本局电脑对手与规则。'
-      : '分享房间号或链接以邀请玩家。'
+    ? '邀请、观战与房间管理。'
     : retainedPanel === 'color'
       ? '选择接下来的出牌颜色。'
       : ''}
@@ -491,38 +578,32 @@
         panel = ''
       }}
     />
-  {:else if botCount}
-    <div class="match-facts">
-      <div><span>对局方式</span><strong>人机对战</strong></div>
-      <div><span>电脑数量</span><strong>{botCount} 台</strong></div>
-      <div><span>对手难度</span><strong>{botDifficulty}</strong></div>
-      <div>
-        <span>本局规则</span><strong
-          >{room.rules.some((rule) => rule.name === 'stacking')
-            ? '罚牌叠加'
-            : '经典玩法'}</strong
-        >
-      </div>
-    </div>
-    <div class="account-separator"></div>
-    <button class="button secondary full" onclick={onleave}
-      ><Icon name="back" size={17} />返回大厅</button
-    >
   {:else}
-    <div class="invite-code">
-      <span>你的房间号</span><strong>{room.id}</strong><button
-        class="button secondary"
-        onclick={() => void invite(true)}
-        ><Icon name="copy" size={16} />复制房间号</button
-      >
-    </div>
-    <button class="button primary full" onclick={() => void invite()}
-      ><Icon name="link" size={17} />复制邀请链接</button
-    >
-    <p class="form-tip">朋友登录账户后即可加入。</p>
-    <div class="account-separator"></div>
-    <button class="button secondary full" onclick={onleave}
-      ><Icon name="back" size={17} />返回大厅</button
-    >
+    <RoomPanel
+      {room}
+      {busy}
+      {invite}
+      participate={(nextRound) =>
+        void run('participation', { next_round: nextRound })}
+      dissolve={() => void dissolve()}
+      leave={() => void leave()}
+    />
   {/if}
 </Sheet>
+
+<style>
+  .spectator-note {
+    display: grid;
+    gap: 8px;
+    padding: 26px 16px;
+    text-align: center;
+  }
+  .spectator-note strong {
+    font-size: 14px;
+  }
+  .spectator-note span {
+    font-size: 12px;
+    line-height: 1.7;
+    opacity: 0.65;
+  }
+</style>

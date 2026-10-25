@@ -3,7 +3,15 @@ export type PlayColor = Exclude<Color, 'wild'>
 export type Kind =
   'number' | 'skip' | 'reverse' | 'draw_two' | 'wild' | 'wild_draw_four'
 export type Action =
-  'start' | 'play' | 'draw' | 'pass' | 'challenge' | 'uno' | 'uno-penalty'
+  | 'start'
+  | 'play'
+  | 'draw'
+  | 'pass'
+  | 'challenge'
+  | 'uno'
+  | 'uno-penalty'
+  | 'rematch'
+  | 'participation'
 export type BotDifficulty = 'easy' | 'normal' | 'hard' | 'expert'
 export type BotStyle = 'balanced' | 'aggressive' | 'cautious'
 
@@ -59,7 +67,20 @@ export interface RuleSpec {
   options?: Record<string, boolean | number>
 }
 
+export interface Spectator {
+  id: string
+  name: string
+  next_round: boolean
+}
+
 export interface Room {
+  roster_version?: number
+  departed?: string[]
+  role?: 'player' | 'spectator'
+  spectators?: Spectator[]
+  rematch_votes?: string[]
+  round?: number
+  revision?: number
   profiles?: Record<string, import('../account/types').Account>
   bots?: Record<string, BotSeat>
   id: string
@@ -90,6 +111,10 @@ export const botDifficultyNames: Record<BotDifficulty, string> = {
 }
 
 export interface ActionBody {
+  roster_version?: number
+  agree?: boolean
+  round?: number
+  next_round?: boolean
   card_id?: number
   color?: PlayColor | 'keep'
   window_id?: number
