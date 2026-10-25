@@ -5,8 +5,9 @@
   import { errorMessage } from '../lib/http'
   import type { AdminClient } from './api'
   import { LiveResource } from './live.svelte'
-  import { phaseNames, type CardEdit } from './types'
+  import { phaseNames, type CardChange } from './types'
   import CardEditor from './CardEditor.svelte'
+  import RoomControls from './RoomControls.svelte'
 
   let {
     id,
@@ -34,9 +35,7 @@
     resource.start()
     return () => resource.dispose()
   })
-  async function apply(
-    edit: Omit<CardEdit, 'expected_version' | 'expected_revision'>,
-  ) {
+  async function apply(edit: CardChange) {
     const room = resource.data
     if (!room || busy) return
     busy = true
@@ -46,6 +45,7 @@
     try {
       const updated = await client.edit(id, {
         ...edit,
+        instance: room.instance,
         expected_version: room.state.version,
         expected_revision: room.revision,
       })
@@ -106,6 +106,27 @@
       </p>
     </div>
   </section>
+  <RoomControls
+    {room}
+    {client}
+    {busy}
+    {reduced}
+    {onerror}
+    onbegin={() => {
+      busy = true
+      notice = ''
+      resource.stop()
+    }}
+    onend={() => {
+      busy = false
+      resource.start()
+    }}
+    onupdated={(updated) => {
+      resource.accept(updated)
+      notice = '房间已更新。'
+    }}
+    onremoved={onback}
+  />
   <div class="admin-hands">
     {#each room.state.players as player (player.id)}
       <section

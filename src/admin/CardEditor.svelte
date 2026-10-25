@@ -2,7 +2,7 @@
   import Sheet from '../lib/components/Sheet.svelte'
   import CardFace from '../lib/components/CardFace.svelte'
   import { cardName } from '../lib/game/types'
-  import type { AdminRoom, CardEdit } from './types'
+  import type { AdminRoom, CardChange } from './types'
   let {
     room,
     selection,
@@ -17,9 +17,7 @@
     busy: boolean
     error: string
     reduced: boolean
-    onapply: (
-      edit: Omit<CardEdit, 'expected_version' | 'expected_revision'>,
-    ) => void
+    onapply: (edit: CardChange) => void
     onclose: () => void
   } = $props()
   let mode = $state<'swap' | 'move'>('swap')

@@ -4,6 +4,9 @@ import type {
   AdminSession,
   AuditPage,
   CardEdit,
+  DeleteBatch,
+  DeleteTarget,
+  RoomFilters,
   RoomPage,
   UserPage,
 } from './types'
@@ -77,9 +80,13 @@ export class AdminClient extends HttpClient {
       password,
     })
   }
-  rooms(offset = 0, signal?: AbortSignal): Promise<RoomPage> {
+  rooms(
+    filters: RoomFilters = {},
+    offset = 0,
+    signal?: AbortSignal,
+  ): Promise<RoomPage> {
     return this.admin(
-      `/rooms?offset=${offset}&limit=20`,
+      `/rooms?${new URLSearchParams({ ...filters, offset: String(offset), limit: '20' })}`,
       'GET',
       undefined,
       signal,
@@ -95,6 +102,26 @@ export class AdminClient extends HttpClient {
   }
   edit(id: string, body: CardEdit): Promise<AdminRoom> {
     return this.admin(`/rooms/${encodeURIComponent(id)}/cards`, 'POST', body)
+  }
+  deleteRooms(rooms: DeleteTarget[]): Promise<DeleteBatch> {
+    return this.admin('/rooms/batch/delete', 'POST', { rooms })
+  }
+  access(
+    id: string,
+    instance: string,
+    join_locked: boolean,
+  ): Promise<AdminRoom> {
+    return this.admin(`/rooms/${encodeURIComponent(id)}/access`, 'PUT', {
+      instance,
+      join_locked,
+    })
+  }
+  kick(id: string, playerId: string, instance: string): Promise<AdminRoom> {
+    return this.admin(
+      `/rooms/${encodeURIComponent(id)}/members/${encodeURIComponent(playerId)}/kick`,
+      'POST',
+      { instance },
+    )
   }
   audit(offset = 0, signal?: AbortSignal): Promise<AuditPage> {
     return this.admin(

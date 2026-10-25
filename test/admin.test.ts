@@ -44,6 +44,7 @@ it('真实管理接口：独立登录、改牌、用户封禁、撤销会话及�
   const source = before.state.players[0]!.hand![0]!
   const replacement = before.deck![0]!
   const edited = await client.edit(roomId, {
+    instance: before.instance,
     operation: 'swap',
     card_id: source.id,
     replacement_id: replacement.id,
@@ -53,12 +54,66 @@ it('真实管理接口：独立登录、改牌、用户封禁、撤销会话及�
   expect(edited.state.players[0]!.hand![0]!.id).toBe(replacement.id)
   await expect(
     client.edit(roomId, {
+      instance: before.instance,
       operation: 'move',
       card_id: replacement.id,
       expected_version: before.state.version,
       expected_revision: before.revision,
     }),
   ).rejects.toMatchObject({ status: 409 })
+  // Exercise administrative controls against the same live Go/SQLite process.
+  const locked = await client.access(roomId, before.instance, true)
+  expect(locked.join_locked).toBe(true)
+  const visitor = new Member()
+  await visitor.register('adminv')
+  expect(
+    (await visitor.request(`/rooms/${roomId}/spectators`, 'POST', {})).status,
+  ).toBe(403)
+  await client.access(roomId, before.instance, false)
+  await visitor.join(roomId, true)
+  const withVisitor = await client.access(roomId, before.instance, true)
+  const kicked = await client.kick(
+    roomId,
+    visitor.seat!.player_id,
+    withVisitor.instance,
+  )
+  expect(kicked.spectators).toHaveLength(0)
+  const botId = Object.keys(kicked.bots ?? {})[0]!
+  await expect(
+    client.kick(roomId, botId, before.instance),
+  ).rejects.toMatchObject({ status: 409 })
+  expect((await visitor.request(`/rooms/${roomId}`)).status).toBe(401)
+  await expect(
+    client.kick(roomId, joined.data!.player_id, before.instance),
+  ).rejects.toMatchObject({ status: 409 })
+  const roomFilter = await client.rooms({
+    q: roomId,
+    access: 'locked',
+    kind: 'bot',
+    phase: 'playing',
+  })
+  expect(roomFilter.total).toBe(1)
+  expect(roomFilter.rooms[0]!.instance).toBe(before.instance)
+  const temporary = `bulk_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`
+  expect(
+    (await player.request('/rooms', 'POST', { id: temporary })).status,
+  ).toBe(201)
+  const lobby = await client.room(temporary)
+  const batch = await client.deleteRooms([
+    { id: temporary, instance: lobby.instance, phase: lobby.state.phase },
+    { id: `${temporary}_missing`, instance: lobby.instance, phase: 'lobby' },
+  ])
+  expect(batch.deleted).toBe(1)
+  expect(batch.results.map((r) => r.status)).toEqual(['deleted', 'not_found'])
+  await expect(client.room(temporary)).rejects.toMatchObject({ status: 404 })
+  expect(
+    (await player.request('/rooms', 'POST', { id: temporary })).status,
+  ).toBe(201)
+  const stale = await client.deleteRooms([
+    { id: temporary, instance: lobby.instance, phase: 'lobby' },
+  ])
+  expect(stale.results[0]!.status).toBe('changed')
+  expect((await client.room(temporary)).instance).not.toBe(lobby.instance)
   const users = await client.users('admin')
   const user = users.users.find((u) => u.id === player.accountId)!
   expect(user).toBeTruthy()

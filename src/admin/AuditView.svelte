@@ -14,6 +14,9 @@
   )
   const names: Record<string, string> = {
     'room.cards': '编辑手牌',
+    'room.delete': '永久删除房间',
+    'room.access': '更改房间加入权限',
+    'room.kick': '移出房间成员',
     'user.status': '更改封禁状态',
     'user.password': '重置密码',
     'user.revoke': '强制退出',

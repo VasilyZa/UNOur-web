@@ -106,3 +106,5 @@ npm run preview
 部署时将 `dist/` 放入静态站点，并将 `/api/` 原样反向代理到 Go 服务；配置后端允许该站点的完整 Origin。同站点分域部署可在构建时设置 `VITE_API_ORIGIN=https://api.example.com`，同时配置后端允许前端来源；Cookie 为 SameSite=Lax，完全跨站的 API 应通过前端同源代理接入。生产通过 HTTPS 服务，并在 TLS 反向代理后的 Go 服务设置 `UNO_SECURE_COOKIES=true`。
 
 前端不创建或迁移数据库；房间和游戏数据由 Go 后端 SQLite 保存。本仓库不关联后端 Git remote。
+
+管理后台仅从 `/admin` 访问，使用独立 HttpOnly 会话和 CSRF 校验。房间页支持统计、成员名称/房间号搜索、筛选排序、本页多选永久删除，以及锁定加入和移出真人成员；详情可查看与编辑手牌。删除确认固定本次选择的房间实例和阶段，逐项显示结果，不自动重试写请求。管理配置和 API 约定见后端 `docs/admin.md`，前后端应一同升级。

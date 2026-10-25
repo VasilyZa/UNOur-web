@@ -74,6 +74,7 @@ export interface Spectator {
 }
 
 export interface Room {
+  join_locked?: boolean
   roster_version?: number
   departed?: string[]
   role?: 'player' | 'spectator'
