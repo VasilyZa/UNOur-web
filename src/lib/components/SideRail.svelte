@@ -51,9 +51,7 @@
     >
     <div class="room-facts">
       <span>规则</span><button class="text-button" onclick={openRules}
-        >{room.rules.some((r) => r.name === 'stacking')
-          ? '叠加玩法'
-          : '经典玩法'}<Icon name="chevron" size={13} /></button
+        >查看本局规则<Icon name="chevron" size={13} /></button
       ><span>玩家</span><span>{room.state.players.length} / 10 位</span>
       {#if botCount}<span>电脑</span><span>{botCount} 台 · {botDifficulty}</span
         >{/if}

@@ -143,7 +143,11 @@
                 aria-label={state.pending_draw
                   ? `承受 ${state.pending_draw} 张罚牌`
                   : '摸一张牌'}
-                disabled={!myTurn || busy || state.can_pass}
+                disabled={!myTurn ||
+                  busy ||
+                  !state.legal_actions?.some(
+                    (action) => action.action === 'draw',
+                  )}
                 onclick={ondraw}
                 ><CardFace back /><span class="deck-plus"
                   ><Icon name="plus" size={15} /></span

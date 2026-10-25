@@ -57,3 +57,16 @@ describe('公开 UNO 声明提示', () => {
     expect(unoDeclarationNotice(previous, current)).toBe('你、Bob：UNO!')
   })
 })
+
+it('UNO 罚摸单独提示，不把罚摸与普通摸牌混为一谈', async () => {
+  const { unoPenaltyNotice } = await import('./announcements')
+  const previous = roomFixture().state,
+    current = structuredClone(previous)
+  current.version = 4
+  Object.assign(current.players[0], { uno_penalized: 2, hand_count: 3 })
+  expect(unoPenaltyNotice(previous, current)).toBe(
+    '漏喊 UNO，罚摸一张；罚摸不占普通摸牌机会。',
+  )
+  expect(unoPenaltyNotice(current, { ...current, version: 5 })).toBe('')
+  expect(unoPenaltyNotice(undefined, current)).toBe('')
+})

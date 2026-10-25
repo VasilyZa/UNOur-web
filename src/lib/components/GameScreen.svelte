@@ -10,12 +10,8 @@
   import TableBoard from './TableBoard.svelte'
   import { ApiClient, ApiError, errorMessage } from '../game/api'
   import { OnlineTransport } from '../game/online'
-  import { unoDeclarationNotice } from '../game/announcements'
-  import {
-    allowedWildColors,
-    matchingHint,
-    readRuleOptions,
-  } from '../game/rules'
+  import { unoDeclarationNotice, unoPenaltyNotice } from '../game/announcements'
+  import { allowedWildColors } from '../game/rules'
   import {
     cardName,
     colorNames,
@@ -84,8 +80,15 @@
     room.state.turn === room.state.you && room.state.phase === 'playing',
   )
   let selectedCard = $derived(me?.hand?.find((card) => card.id === selected))
-  let wildColors = $derived(allowedWildColors(room))
-  let playAnyAfterDraw = $derived(readRuleOptions(room.rules).playAnyAfterDraw)
+  let wildColors = $derived(allowedWildColors(room, selectedCard ?? null))
+  let canDrawOrPass = $derived(
+    !!room.state.legal_actions?.some(
+      (action) => action.action === (room.state.can_pass ? 'pass' : 'draw'),
+    ),
+  )
+  let canChallenge = $derived(
+    !!room.state.legal_actions?.some((action) => action.action === 'challenge'),
+  )
   const colors: PlayColor[] = ['red', 'yellow', 'green', 'blue']
   let playable = $derived(
     selectedCard ? suggestsPlayable(selectedCard, room) : false,
@@ -124,7 +127,12 @@
     unsubscribe = next.subscribe((snapshot) => {
       const current = snapshot.room
       if (previous && current.state.version > previous.state.version) {
-        const unoNotice = unoDeclarationNotice(previous.state, current.state)
+        const unoNotice = [
+          unoDeclarationNotice(previous.state, current.state),
+          unoPenaltyNotice(previous.state, current.state),
+        ]
+          .filter(Boolean)
+          .join(' · ')
         if (unoNotice) showNotice(unoNotice)
         let text = ''
         const actor = previous.state.players.find(
@@ -190,7 +198,6 @@
       await target.act(action, body)
       if (target !== port || !alive) return false
       if (action === 'play') selected = null
-      if (action === 'uno-penalty') showNotice('漏喊 UNO，罚摸一张。')
       return true
     } catch (error) {
       if (target === port && alive && !silent) showNotice(errorMessage(error))
@@ -204,22 +211,11 @@
   function selectCard(card: Card) {
     selected = selected === card.id ? null : card.id
     if (!suggestsPlayable(card, room))
-      showNotice(
-        room.state.can_pass
-          ? playAnyAfterDraw
-            ? '这张牌不符合本局规则，请选择其他手牌或跳过。'
-            : '摸牌后只能出刚摸到的那张，或选择跳过。'
-          : room.state.pending_draw
-            ? '这张牌不能接当前罚牌，请按本局规则接牌或摸牌。'
-            : matchingHint(
-                room.rules,
-                room.state.active_color,
-                room.state.top_card?.kind,
-              ),
-      )
+      showNotice('这张牌当前不可出，请选择亮起的手牌，或使用下方可用操作。')
   }
+
   function playSelected() {
-    if (!selectedCard || busy) return
+    if (!selectedCard || !playable || busy) return
     if (selectedCard.color === 'wild') {
       pendingWild = selectedCard.id
       panel = 'color'
@@ -389,29 +385,33 @@
             ? '等待开局'
             : room.state.phase === 'finished'
               ? '本局已结束'
-              : myTurn
-                ? '轮到你出牌'
-                : botThinking
-                  ? '电脑正在思考…'
-                  : `等待${turnPlayer?.name || '玩家'}出牌`}</strong
+              : room.state.finishing_player
+                ? room.state.finishing_player === room.state.you
+                  ? '等待胜负结算'
+                  : myTurn
+                    ? '结算最后的罚牌'
+                    : '等待罚牌结算'
+                : myTurn
+                  ? '轮到你出牌'
+                  : botThinking
+                    ? '电脑正在思考…'
+                    : `等待${turnPlayer?.name || '玩家'}出牌`}</strong
         ><span
           >{room.state.phase === 'lobby'
             ? `房间内 ${room.state.players.length} 位玩家`
             : room.state.phase === 'finished'
               ? '查看本局结果'
-              : myTurn
-                ? room.state.can_pass
-                  ? playAnyAfterDraw
-                    ? '可以出任意符合规则的手牌，或跳过'
-                    : '可以打出刚摸到的牌，或跳过'
-                  : room.state.pending_draw
-                    ? `承受 ${room.state.pending_draw} 张罚牌，或按规则接牌`
-                    : matchingHint(
-                        room.rules,
-                        room.state.active_color,
-                        room.state.top_card?.kind,
-                      )
-                : '等待当前玩家完成操作'}</span
+              : room.state.finishing_player
+                ? myTurn
+                  ? canChallenge
+                    ? '摸罚牌或质疑，结算后确认胜者'
+                    : '摸罚牌后确认胜者'
+                  : '等待对方处理最后的罚牌'
+                : myTurn
+                  ? room.state.pending_draw
+                    ? `当前罚牌 ${room.state.pending_draw} 张，请选择可用操作`
+                    : '选择亮起的手牌或下方可用操作'
+                  : '等待当前玩家完成操作'}</span
         >
       </div>
       <span class="turn-side"
@@ -506,7 +506,7 @@
       {:else}
         <button
           class="button secondary draw-button"
-          disabled={!myTurn || busy}
+          disabled={!myTurn || !canDrawOrPass || busy}
           onclick={() =>
             room.state.can_pass ? void run('pass') : void run('draw')}
           ><Icon name={room.state.can_pass ? 'arrow' : 'plus'} size={19} />{room
@@ -516,7 +516,7 @@
               ? `摸 ${room.state.pending_draw} 张`
               : '摸一张'}</button
         >
-        {#if room.state.challenge_target && myTurn}<button
+        {#if canChallenge && myTurn}<button
             class="challenge-button"
             onclick={() => void run('challenge')}
             disabled={busy}
@@ -525,16 +525,18 @@
           >{/if}
         <button
           class="button primary play-button"
-          disabled={!myTurn || !selectedCard || busy}
+          disabled={!myTurn || !playable || busy}
           onclick={playSelected}
           >{busy
             ? '正在确认…'
             : !myTurn
-              ? '等待回合'
+              ? room.state.finishing_player
+                ? '等待结算'
+                : '等待回合'
               : selectedCard
                 ? playable
                   ? '打出这张牌'
-                  : '尝试打出这张'
+                  : '这张牌暂不可出'
                 : '选择一张牌'}<Icon name="arrow" size={19} /></button
         >
       {/if}
@@ -591,7 +593,7 @@
           class={`color-option ${color}`}
           disabled={busy || !wildColors.includes(color)}
           aria-label={color === room.state.active_color
-            ? `${colorNames[color]}，${wildColors.includes(color) ? '保留当前色' : '本局必须换色'}`
+            ? `${colorNames[color]}，${wildColors.includes(color) ? '保留当前色' : '当前不可选'}`
             : colorNames[color]}
           onclick={() => chooseColor(color)}
           ><span>{{ red: '●', yellow: '◆', green: '■', blue: '▲' }[color]}</span
@@ -600,11 +602,7 @@
             : colorNames[color]}</button
         >{/each}
     </div>
-    <p class="color-rule-note">
-      {wildColors.length === 4
-        ? '本局允许保留当前颜色。'
-        : '本局必须选择其他颜色。'}
-    </p>
+    <p class="color-rule-note">请选择亮起的颜色。</p>
   {:else if retainedPanel === 'rules'}
     <RulesPanel
       {room}

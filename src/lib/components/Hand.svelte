@@ -190,13 +190,13 @@
         </p>{/if}
     </div>
   </div>
-  <p class="hand-hint">
-    {displayed.length > 7
-      ? '左右滑动浏览手牌 · 点选后确认出牌'
-      : selected !== null
-        ? '确认出牌，或选择其他手牌'
-        : '点选一张手牌，再确认出牌'}
-  </p>
+  {#if displayed.length}<p class="hand-hint">
+      {displayed.length > 7
+        ? '左右滑动浏览手牌 · 点选后确认出牌'
+        : selected !== null
+          ? '确认出牌，或选择其他手牌'
+          : '点选一张手牌，再确认出牌'}
+    </p>{/if}
 </section>
 
 <style>

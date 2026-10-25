@@ -77,7 +77,7 @@ src/
   lib/components/GameScreen.svelte  牌桌、UNO 与房间面板协调
   lib/components/         SVG 卡牌、玩家、手牌、牌桌、原生 dialog 和面板
   lib/game/types.ts       后端 DTO 与可出牌提示（最终由服务器判定）
-  lib/game/rules.ts       建房规则配置、服务端配置读取和动态提示
+  lib/game/rules.ts       通用规则目录、选项依赖与建房请求
   lib/game/api.ts         HTTP、超时、错误边界
   lib/game/online.ts      联机同步、版本与请求取消
   lib/game/bootstrap.ts   会话恢复的生命周期保护
@@ -87,19 +87,19 @@ src/
   styles/                 共享视觉与动效样式
 ```
 
-无运行时 UI 组件库、游戏引擎、远程字体或位图依赖。默认头像、图标、牌面均为本地 SVG；自定义头像由后端提供规范 PNG。新增后端规则时更新提示和规则说明；任何新增效果仍以服务器为准。
+无运行时 UI 组件库、游戏引擎、远程字体或位图依赖。默认头像、图标、牌面均为本地 SVG；自定义头像由后端提供规范 PNG。前端从 GET /api/v1/rules 读取模块、默认值、布尔/整数/选择项及依赖约束；手牌高亮、可选颜色与规则说明来自服务端。增加现有效果协议内的后端 JSON 规则无需修改或重新构建前端。目录变化时自动读取新配置，用户确认后重新创建；读取失败仍可加入已有房间。
 
 ## 检查和构建
 
 ```sh
 npm run check
-npm test  # 自动构建并启动独立的真实 Go 后端，使用临时 SQLite
+npm test  # 每个测试文件启动独立真实 Go 后端与临时 SQLite
 npm run format:check
 npm run build
 npm run preview
 ```
 
-`npm test` 默认从相邻 `../unour` 构建后端，可用 `UNO_BACKEND_DIR=/path/to/unour` 指定源码；也可以用 `UNO_TEST_ORIGIN=http://127.0.0.1:8088 npm test` 连接已启动的真实服务。测试服务使用随机端口，结束时自动停止并删除临时数据库；连接已有服务时会创建带随机用户名的测试账户。
+`npm test` 默认从相邻 `../unour` 构建后端，可用 `UNO_BACKEND_DIR=/path/to/unour` 指定源码；也可以用 `UNO_TEST_ORIGIN=http://127.0.0.1:8088 npm test` 连接已启动的真实服务。各测试文件的服务与登录限流独立，使用随机端口，结束时自动停止并删除临时数据库；连接已有服务时会创建带随机用户名的测试账户。
 
 构建产物是 `dist/` 静态文件。测试覆盖请求认证与版本、人机创建请求合同、网络错误不重复发送、UNO 窗口与罚牌幂等、迟到状态保护、恢复请求隔离、叠加提示、主题偏好、弹窗动画中断、账户请求竞态，以及真实 HTTP 注册/登录/头像/真人开局、人机配置校验与电脑行动、隐私和注销。
 

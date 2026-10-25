@@ -17,3 +17,19 @@ export function unoDeclarationNotice(
   )
   return `${names.join('、')}：UNO!`
 }
+
+// The persisted window number distinguishes an automatic UNO penalty from a
+// normal draw, including when polling skipped the short-lived UNO window.
+export function unoPenaltyNotice(
+  previous: GameState | undefined,
+  current: GameState,
+): string {
+  if (!previous || current.version <= previous.version) return ''
+  const before = previous.players.find((player) => player.id === current.you)
+  const player = current.players.find((player) => player.id === current.you)
+  return before &&
+    player &&
+    (player.uno_penalized ?? 0) > (before.uno_penalized ?? 0)
+    ? '漏喊 UNO，罚摸一张；罚摸不占普通摸牌机会。'
+    : ''
+}

@@ -12,7 +12,12 @@
   import { AccountRequests } from './lib/account/requests'
   import { ApiClient, ApiError, errorMessage } from './lib/game/api'
   import { joinFromLobby } from './lib/game/entry'
-  import { buildRuleSpecs, defaultRuleOptions } from './lib/game/rules'
+  import {
+    buildRuleSpecs,
+    createRuleSelection,
+    type RuleCatalog,
+    type RuleSelection,
+  } from './lib/game/rules'
   import { readSession, saveSession, forgetSession } from './lib/game/session'
   import {
     restoreRoomSession,
@@ -51,9 +56,12 @@
   let spectate = $state(false)
   let roomCode = $state(''),
     roomMode = $state<'create' | 'join' | 'solo'>('solo'),
-    ruleOptions = $state(defaultRuleOptions()),
+    ruleOptions = $state<RuleSelection>({}),
     botCount = $state(2),
     botDifficulty = $state<BotDifficulty>('normal')
+  let catalog = $state<RuleCatalog | null>(null),
+    catalogLoading = $state(false),
+    catalogError = $state('')
   let panel = $state<'' | 'settings' | 'account'>(''),
     retainedPanel = $state<'settings' | 'account'>('settings')
   let themePreference = $state<ThemePreference>(readTheme()),
@@ -208,6 +216,24 @@
       }
     }
   }
+  async function loadRuleCatalog() {
+    if (catalogLoading) return
+    catalogLoading = true
+    catalogError = ''
+    try {
+      const loaded = await api.rulesCatalog(abort.signal)
+      if (!alive) return
+      ruleOptions = createRuleSelection(loaded, ruleOptions)
+      catalog = loaded
+    } catch (error) {
+      if (alive) {
+        catalog = null
+        catalogError = errorMessage(error)
+      }
+    } finally {
+      if (alive) catalogLoading = false
+    }
+  }
   async function enterRoom(event: SubmitEvent) {
     event.preventDefault()
     if (!user || joining || restoring) return
@@ -216,16 +242,32 @@
     joining = true
     roomError = ''
     try {
+      if (roomMode !== 'join' && (!catalog || catalogLoading || catalogError))
+        throw new Error('请先读取规则。')
       const rules =
-        roomMode === 'join' ? undefined : buildRuleSpecs(ruleOptions)
+        roomMode === 'join' ? undefined : buildRuleSpecs(catalog!, ruleOptions)
+      const catalogRevision =
+        roomMode === 'join' ? undefined : catalog!.revision
       let result: JoinResult
       if (roomMode === 'solo') {
-        result = await api.solo(accountID, botCount, botDifficulty, rules)
+        result = await api.solo(
+          accountID,
+          botCount,
+          botDifficulty,
+          rules,
+          catalogRevision,
+        )
       } else {
         result = await joinFromLobby(
           api,
           accountID,
-          { mode: roomMode, roomId: roomCode, spectate, rules },
+          {
+            mode: roomMode,
+            roomId: roomCode,
+            spectate,
+            rules,
+            catalogRevision,
+          },
           (id) => {
             if (!alive || user?.id !== accountID || current !== revision) return
             roomCode = id
@@ -249,7 +291,12 @@
       history.replaceState(null, '', location.pathname)
     } catch (error) {
       if (alive && current === revision) {
-        roomError = errorMessage(error)
+        roomError =
+          error instanceof Error && !(error instanceof ApiError)
+            ? error.message
+            : errorMessage(error)
+        if (error instanceof ApiError && error.code === 'rule_catalog_changed')
+          await loadRuleCatalog()
         if (
           error instanceof ApiError &&
           ['account_unauthorized', 'account_changed'].includes(error.code)
@@ -370,6 +417,7 @@
       roomCode = invitation
       roomMode = 'join'
     }
+    void loadRuleCatalog()
     void initialize()
     return () => {
       motion.removeEventListener('change', updateMotion)
@@ -465,6 +513,10 @@
             bind:mode={roomMode}
             bind:spectate
             bind:rules={ruleOptions}
+            {catalog}
+            {catalogLoading}
+            {catalogError}
+            onReloadRules={() => void loadRuleCatalog()}
             bind:botCount
             bind:difficulty={botDifficulty}
             busy={joining}

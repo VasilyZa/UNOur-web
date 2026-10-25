@@ -8,15 +8,27 @@ import type {
   Session,
 } from './types'
 
+import type { RuleCatalog } from './rules'
 import { HttpClient } from '../http'
 export { ApiError, errorMessage } from '../http'
 
 export class ApiClient extends HttpClient {
-  create(accountId: string, rules?: RuleSpec[]): Promise<Room> {
+  rulesCatalog(signal?: AbortSignal): Promise<RuleCatalog> {
+    return this.request('/rules', 'GET', undefined, undefined, signal)
+  }
+
+  create(
+    accountId: string,
+    rules?: RuleSpec[],
+    catalogRevision?: string,
+  ): Promise<Room> {
     return this.request(
       '/rooms',
       'POST',
-      rules ? { rules } : {},
+      {
+        ...(rules ? { rules } : {}),
+        ...(catalogRevision ? { catalog_revision: catalogRevision } : {}),
+      },
       undefined,
       undefined,
       accountId,
@@ -28,6 +40,7 @@ export class ApiClient extends HttpClient {
     botCount: number,
     difficulty: BotDifficulty,
     rules?: RuleSpec[],
+    catalogRevision?: string,
   ): Promise<JoinResult> {
     return this.request(
       '/solo',
@@ -36,6 +49,7 @@ export class ApiClient extends HttpClient {
         bot_count: botCount,
         difficulty,
         ...(rules ? { rules } : {}),
+        ...(catalogRevision ? { catalog_revision: catalogRevision } : {}),
       },
       undefined,
       undefined,

@@ -41,9 +41,11 @@ export interface Player {
   uno?: UNOWindow
   /** 已成功声明的 UNO 窗口编号；用于跨轮询识别和去重。 */
   uno_declared?: number
+  uno_penalized?: number
 }
 
 export interface GameState {
+  legal_actions?: { action: Action; card_id?: number; color?: PlayColor }[]
   phase: 'lobby' | 'playing' | 'finished'
   version: number
   you: string
@@ -60,11 +62,15 @@ export interface GameState {
   drawn_card_id?: number
   can_pass: boolean
   winner?: string
+  finishing_player?: string
 }
 
+export type RuleScalar = boolean | number | string
+
 export interface RuleSpec {
+  version?: number
   name: string
-  options?: Record<string, boolean | number>
+  options?: Record<string, RuleScalar>
 }
 
 export interface Spectator {
@@ -88,6 +94,7 @@ export interface Room {
   host_id: string
   created_at: string
   rules: RuleSpec[]
+  rule_descriptions?: import('./rules').RuleDescription[]
   state: GameState
 }
 
@@ -164,58 +171,13 @@ export function cardName(card: Card): string {
   return `${colorNames[card.color]}${name}`
 }
 
-/** 仅为界面提示，最终是否合法始终以服务器规则结算为准。 */
+/** Uses the same frozen server policy as command validation. */
 export function suggestsPlayable(card: Card, room: Room): boolean {
-  const state = room.state
-  if (state.phase !== 'playing' || state.turn !== state.you) return false
-  const playAnyAfterDraw = room.rules.some(
-    (rule) =>
-      rule.name === 'draw' && rule.options?.play_any_after_draw === true,
-  )
-  if (
-    state.can_pass &&
-    state.drawn_card_id &&
-    card.id !== state.drawn_card_id &&
-    !playAnyAfterDraw
-  )
-    return false
-  if (
-    card.kind === 'wild_draw_four' &&
-    !room.rules.some((rule) => rule.name === 'challenge') &&
-    state.players
-      .find((player) => player.id === state.you)
-      ?.hand?.some(
-        (held) => held.color !== 'wild' && held.color === state.active_color,
-      )
-  )
-    return false
-  if (state.pending_draw) {
-    const stacking = room.rules.find((rule) => rule.name === 'stacking')
-    if (!stacking) return false
-    const sameColor = card.color === 'wild' || card.color === state.active_color
-    if (card.kind === 'reverse')
-      return (
-        !!stacking.options?.reverse &&
-        (sameColor || state.top_card?.kind === 'reverse')
-      )
-    return (
-      ['draw_two', 'wild_draw_four'].includes(card.kind) &&
-      (!!stacking.options?.mixed || card.kind === state.pending_draw_kind) &&
-      (!!stacking.options?.different_colors || sameColor)
-    )
-  }
-  const matchingRule = room.rules.find((rule) => rule.name === 'matching')
-  if (!matchingRule) return false
-  const matching = matchingRule.options
-  const followsWild =
-    state.top_card?.kind === 'wild' || state.top_card?.kind === 'wild_draw_four'
   return (
-    card.color === 'wild' ||
-    ((matching?.same_color !== false || followsWild) &&
-      card.color === state.active_color) ||
-    (matching?.same_value !== false &&
-      card.kind === state.top_card?.kind &&
-      (card.kind !== 'number' ||
-        (card.number ?? 0) === (state.top_card.number ?? 0)))
+    room.state.phase === 'playing' &&
+    room.state.turn === room.state.you &&
+    !!room.state.legal_actions?.some(
+      (action) => action.action === 'play' && action.card_id === card.id,
+    )
   )
 }

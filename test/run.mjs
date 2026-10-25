@@ -1,14 +1,13 @@
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, cp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createInterface } from 'node:readline'
 import { randomBytes } from 'node:crypto'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const backend = process.env.UNO_BACKEND_DIR || resolve(root, '../unour')
-let directory, server
+let directory, runtime
 let adminPassword = process.env.UNO_TEST_ADMIN_PASSWORD || ''
 
 function exited(child) {
@@ -40,46 +39,44 @@ async function origin() {
   configure.stdin.end(adminPassword)
   if (await exited(configure))
     throw new Error('无法创建隔离的管理后台测试配置。')
-  server = spawn(binary, [], {
-    cwd: backend,
-    env: {
-      ...process.env,
-      UNO_ADDR: '127.0.0.1:0',
-      UNO_DB_PATH: join(directory, 'test.db'),
-      UNO_ALLOWED_ORIGINS: 'http://localhost:5173',
-      UNO_SECURE_COOKIES: 'false',
-      UNO_ADMIN_CONFIG: adminConfig,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  return new Promise((resolve, reject) => {
-    const lines = createInterface({ input: server.stdout })
-    const timeout = setTimeout(
-      () => reject(new Error('真实后端启动超时。')),
-      10000,
-    )
-    server.once('error', reject)
-    server.once('exit', (code) => {
-      clearTimeout(timeout)
-      reject(new Error(`真实后端提前退出：${code}`))
-    })
-    server.stderr.on('data', (bytes) => process.stderr.write(bytes))
-    lines.on('line', (line) => {
-      try {
-        const entry = JSON.parse(line)
-        if (entry.msg === 'UNO server listening' && entry.address) {
-          clearTimeout(timeout)
-          resolve(`http://${entry.address}`)
-        }
-      } catch {
-        /* Ignore non-JSON startup output. */
-      }
-    })
-  })
+  const rulesDirectory = join(directory, 'rules')
+  await cp(join(backend, 'rules'), rulesDirectory, { recursive: true })
+  await writeFile(
+    join(rulesDirectory, 'test_extension.json'),
+    JSON.stringify({
+      name: 'extension_from_file',
+      version: 1,
+      order: 100,
+      title: '配置扩展规则',
+      group: '测试扩展',
+      default_enabled: false,
+      options: [
+        {
+          key: 'block_play',
+          type: 'boolean',
+          label: '暂停出牌',
+          default: true,
+        },
+      ],
+      steps: [
+        {
+          when: 'action == "play" && options.block_play',
+          reject: '配置暂时禁止出牌。',
+        },
+      ],
+      summary: [{ text: '由新增配置文件控制出牌。' }],
+    }),
+  )
+  runtime = { binary, backend, adminConfig, rulesDirectory }
+  return ''
 }
 try {
   const target = await origin()
-  console.log(`使用真实 Go 后端：${target}`)
+  console.log(
+    target
+      ? `使用真实 Go 后端：${target}`
+      : '每个测试文件使用独立真实 Go 后端与临时 SQLite。',
+  )
   const tests = spawn(
     process.execPath,
     [
@@ -93,6 +90,8 @@ try {
         ...process.env,
         UNO_TEST_ORIGIN: target,
         UNO_TEST_ADMIN_PASSWORD: adminPassword,
+        UNO_TEST_RULE_EXTENSION: runtime ? '1' : '',
+        UNO_TEST_SERVER_RUNTIME: runtime ? JSON.stringify(runtime) : '',
       },
       stdio: 'inherit',
     },
@@ -107,12 +106,5 @@ try {
   console.error(error.message)
   process.exitCode = 1
 } finally {
-  if (server && server.exitCode === null) {
-    const done = exited(server)
-    server.kill('SIGTERM')
-    const force = setTimeout(() => server.kill('SIGKILL'), 5000)
-    await done
-    clearTimeout(force)
-  }
   if (directory) await rm(directory, { recursive: true, force: true })
 }

@@ -1,62 +1,39 @@
 <script lang="ts">
-  import { defaultRuleOptions, type RoomRuleOptions } from '../game/rules'
-
+  import {
+    effectiveRuleOptions,
+    isLastRequiredChoice,
+    optionAvailable,
+    type RuleCatalog,
+    type RuleSelection,
+  } from '../game/rules'
+  import type { RuleScalar } from '../game/types'
   let {
-    options = $bindable(defaultRuleOptions()),
+    catalog,
+    options = $bindable({}),
     busy,
-  }: { options?: RoomRuleOptions; busy: boolean } = $props()
-  type Toggle = { key: keyof RoomRuleOptions; title: string; detail: string }
-  const matching: Toggle[] = [
-    {
-      key: 'sameColor',
-      title: '允许同色接牌',
-      detail: '可以接当前出牌颜色的牌。',
-    },
-    {
-      key: 'sameValue',
-      title: '允许同数字接牌',
-      detail: '动作牌按同类型匹配；万能牌后按指定颜色接牌。',
-    },
-  ]
-  const actions: Toggle[] = [
-    {
-      key: 'playAnyAfterDraw',
-      title: '摸牌后允许出任意手牌',
-      detail: '仍需符合本局接牌规则，也可以选择跳过。',
-    },
-    {
-      key: 'skipDraw',
-      title: '允许禁后摸牌',
-      detail: '被跳过的玩家额外摸一张牌。',
-    },
-    {
-      key: 'keepColor',
-      title: '允许转色后颜色不变',
-      detail: '万能牌可以保留当前颜色；关闭时必须换色。',
-    },
-  ]
-  const stacking: Toggle[] = [
-    {
-      key: 'mixedStacking',
-      title: '允许 +2 / +4 混合叠加',
-      detail: '+2 和 +4 可以互相叠加。',
-    },
-    {
-      key: 'differentColorStacking',
-      title: '允许异色 +2 叠加',
-      detail: '接 +2 时不受当前颜色限制。',
-    },
-    {
-      key: 'reverseStacking',
-      title: '允许连续转向',
-      detail: '用反转牌把罚牌转给上家，可继续接反转。',
-    },
-  ]
+  }: {
+    catalog: RuleCatalog
+    options?: RuleSelection
+    busy: boolean
+  } = $props()
   let changed = $derived(
-    Object.entries(defaultRuleOptions()).filter(
-      ([key, value]) => options[key as keyof RoomRuleOptions] !== value,
-    ).length,
+    catalog.modules.reduce((count, module) => {
+      const selected = options[module.name]
+      if (!selected) return count
+      const enabled = module.required || selected.enabled
+      if (enabled !== module.default_enabled) count++
+      if (enabled) {
+        const values = effectiveRuleOptions(module, selected.options)
+        count += module.options.filter(
+          (option) => values[option.key] !== option.default,
+        ).length
+      }
+      return count
+    }, 0),
   )
+  function update(module: string, key: string, value: RuleScalar) {
+    options[module].options[key] = value
+  }
 </script>
 
 <details class="rule-settings">
@@ -67,78 +44,100 @@
     ></summary
   >
   <div class="rule-fields">
-    <fieldset disabled={busy}>
-      <legend>出牌匹配 <span>至少开启一项</span></legend>
-      {#each matching as item}
-        <label class="rule-setting">
-          <span><strong>{item.title}</strong><small>{item.detail}</small></span>
-          <input
-            type="checkbox"
-            bind:checked={options[item.key]}
-            disabled={options[item.key] &&
-              (item.key === 'sameColor'
-                ? !options.sameValue
-                : !options.sameColor)}
-          />
-        </label>
-      {/each}
-    </fieldset>
-    <fieldset disabled={busy}>
-      <legend>摸牌与动作牌</legend>
-      {#each actions as item}
-        <label class="rule-setting">
-          <span><strong>{item.title}</strong><small>{item.detail}</small></span>
-          <input type="checkbox" bind:checked={options[item.key]} />
-        </label>
-      {/each}
-    </fieldset>
-    <fieldset disabled={busy}>
-      <legend>罚牌叠加</legend>
-      <label class="rule-setting">
-        <span
-          ><strong>允许罚牌叠加</strong><small
-            >开启后，可用同类罚牌继续接牌。</small
-          ></span
-        >
-        <input type="checkbox" bind:checked={options.stacking} />
-      </label>
-      <fieldset class="dependent" disabled={!options.stacking}>
-        <legend class="sr-only">叠加选项，需开启罚牌叠加</legend>
-        {#each stacking as item}
-          <label class="rule-setting">
-            <span
-              ><strong>{item.title}</strong><small>{item.detail}</small></span
-            >
-            <input type="checkbox" bind:checked={options[item.key]} />
-          </label>
-        {/each}
-      </fieldset>
-    </fieldset>
-    <fieldset disabled={busy}>
-      <legend>+4 质疑</legend>
-      <label class="rule-setting">
-        <span
-          ><strong>允许 +4 质疑</strong><small
-            >可质疑持有当前颜色时打出的 +4。</small
-          ></span
-        >
-        <input type="checkbox" bind:checked={options.challenge} />
-      </label>
-      <label class="rule-setting">
-        <span
-          ><strong>质疑失败罚牌 2 倍</strong><small
-            >{options.challenge
-              ? '关闭时，承担当前罚牌池的 1.5 倍。'
-              : '开启 +4 质疑后可设置。'}</small
-          ></span
-        >
-        <input
-          type="checkbox"
-          bind:checked={options.doubleChallengePenalty}
-          disabled={!options.challenge}
-        />
-      </label>
-    </fieldset>
+    {#each catalog.modules as module (module.name)}
+      {@const selected = options[module.name]}
+      {#if selected}
+        <fieldset disabled={busy}>
+          <legend
+            >{module.title}{#if module.group}<span>{module.group}</span
+              >{/if}</legend
+          >
+          {#if module.description}<p class="module-description">
+              {module.description}
+            </p>{/if}
+          {#if !module.required}
+            <label class="rule-setting module-enable">
+              <span><strong>启用{module.title}</strong></span>
+              <input type="checkbox" bind:checked={selected.enabled} />
+            </label>
+          {/if}
+          {#if module.required || selected.enabled}
+            {#each module.options as option (option.key)}
+              {@const unavailable = !optionAvailable(
+                module,
+                option,
+                selected.options,
+              )}
+              <label class="rule-setting">
+                <span
+                  ><strong>{option.label}</strong>{#if option.description}<small
+                      >{option.description}</small
+                    >{/if}</span
+                >
+                {#if option.type === 'boolean'}
+                  <input
+                    type="checkbox"
+                    checked={selected.options[option.key] === true}
+                    disabled={unavailable ||
+                      isLastRequiredChoice(
+                        module,
+                        option.key,
+                        selected.options,
+                      )}
+                    onchange={(event) =>
+                      update(
+                        module.name,
+                        option.key,
+                        event.currentTarget.checked,
+                      )}
+                  />
+                {:else if option.type === 'integer'}
+                  <input
+                    type="number"
+                    min={option.min}
+                    max={option.max}
+                    step="1"
+                    inputmode="numeric"
+                    value={Number(selected.options[option.key])}
+                    disabled={unavailable}
+                    onchange={(event) =>
+                      update(
+                        module.name,
+                        option.key,
+                        event.currentTarget.valueAsNumber,
+                      )}
+                  />
+                {:else}
+                  <select
+                    disabled={unavailable}
+                    value={String(
+                      option.choices?.findIndex(
+                        (choice) =>
+                          choice.value === selected.options[option.key],
+                      ),
+                    )}
+                    onchange={(event) =>
+                      update(
+                        module.name,
+                        option.key,
+                        option.choices![Number(event.currentTarget.value)]
+                          .value,
+                      )}
+                  >
+                    {#each option.choices ?? [] as choice, index}<option
+                        value={String(index)}>{choice.label}</option
+                      >{/each}
+                  </select>
+                {/if}
+              </label>
+            {/each}
+            {#each module.constraints as constraint}<p class="constraint">
+                {constraint.message}
+              </p>{/each}
+          {/if}
+        </fieldset>
+      {/if}
+    {/each}
   </div>
 </details>
 
@@ -233,21 +232,55 @@
     font-size: 11px;
     line-height: 1.7;
   }
-  .rule-setting input {
+  .rule-setting input[type='checkbox'] {
     flex: 0 0 21px;
     width: 21px;
     height: 21px;
     margin: 0;
     accent-color: var(--accent);
   }
-  .rule-setting:has(input:disabled) {
+  .rule-setting:has(:disabled) {
     cursor: default;
   }
-  .dependent:disabled,
   fieldset:disabled {
     opacity: 0.55;
   }
   .rule-fields > fieldset:last-child > .rule-setting:last-child {
     border-bottom: 0;
+  }
+  .rule-setting select,
+  .rule-setting input[type='number'] {
+    flex: 0 0 104px;
+    width: 104px;
+    max-width: 42%;
+    min-height: 44px;
+    padding: 0 9px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    color: var(--text);
+    background: var(--surface);
+    font: inherit;
+    font-size: 16px;
+  }
+  .rule-setting:has(:disabled) > span {
+    opacity: 0.65;
+  }
+  .module-description,
+  .constraint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .constraint {
+    margin-top: 6px;
+  }
+  .module-enable {
+    border-bottom: 0;
+    padding-top: 3px;
+  }
+  .rule-setting strong {
+    overflow-wrap: anywhere;
   }
 </style>

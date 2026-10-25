@@ -1,13 +1,17 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import RuleSettings from './RuleSettings.svelte'
-  import { defaultRuleOptions, type RoomRuleOptions } from '../game/rules'
+  import type { RuleCatalog, RuleSelection } from '../game/rules'
   import type { BotDifficulty } from '../game/types'
   let {
     spectate = $bindable(false),
     code = $bindable(''),
     mode = $bindable('solo'),
-    rules = $bindable(defaultRuleOptions()),
+    rules = $bindable({}),
+    catalog,
+    catalogLoading,
+    catalogError,
+    onReloadRules,
     botCount = $bindable(2),
     difficulty = $bindable<BotDifficulty>('normal'),
     busy,
@@ -17,7 +21,11 @@
     spectate?: boolean
     code?: string
     mode?: 'create' | 'join' | 'solo'
-    rules?: RoomRuleOptions
+    rules?: RuleSelection
+    catalog: RuleCatalog | null
+    catalogLoading: boolean
+    catalogError: string
+    onReloadRules: () => void
     botCount?: number
     difficulty?: BotDifficulty
     busy: boolean
@@ -88,10 +96,29 @@
       </div>
       <p class="solo-tip">根据出牌记录与局势思考。</p>
     {/if}
-    <RuleSettings bind:options={rules} {busy} />
+    {#if catalog}<RuleSettings
+        {catalog}
+        bind:options={rules}
+        busy={busy || catalogLoading}
+      />{/if}
+    {#if catalogLoading}<p class="rules-status" role="status">正在读取规则…</p>
+    {:else if catalogError}<div class="rules-status" role="alert">
+        <p>{catalogError}</p>
+        <button
+          class="text-button"
+          type="button"
+          onclick={onReloadRules}
+          disabled={busy}>重新读取规则</button
+        >
+      </div>
+    {/if}
   {/if}
   {#if error}<p class="form-error" role="alert">{error}</p>{/if}
-  <button class="button primary full" type="submit" disabled={busy}
+  <button
+    class="button primary full"
+    type="submit"
+    disabled={busy ||
+      (mode !== 'join' && (!catalog || catalogLoading || !!catalogError))}
     >{busy
       ? '正在进入…'
       : mode === 'join'
@@ -112,6 +139,15 @@
 </form>
 
 <style>
+  .rules-status {
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .rules-status p {
+    margin: 0 0 8px;
+  }
   .room-modes {
     gap: 2px;
     margin-bottom: 20px;

@@ -10,6 +10,7 @@ export class ApiError extends Error {
 }
 
 const messages: Record<string, string> = {
+  rule_catalog_changed: '规则配置已更新，请确认新的选项后重新创建。',
   admin_unauthorized: '管理会话已过期，请重新登录。',
   admin_credentials: '管理密码不正确。',
   admin_csrf: '管理凭证已变化，请刷新页面后重试。',
