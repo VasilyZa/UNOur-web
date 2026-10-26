@@ -1,0 +1,11 @@
+MiSans VF
+
+UNOur 使用了小米科技有限责任公司提供的 MiSans 字体。
+字体的知识产权归许可方所有，使用须遵守随附的 LICENSE.pdf。
+
+字体文件为小米官方发布的 WOFF2 可变字体分片，未修改字体数据。
+浏览器通过 unicode-range 按需加载，所有文件随本应用部署。
+
+官方站点：https://hyperos.mi.com/font/zh/
+原始样式：https://cdn-font.hyperos.mi.com/font/css?family=MiSans_VF:VF:Chinese_Simplify,Latin&display=swap
+许可协议：https://hyperos.mi.com/font-download/MiSans字体知识产权许可协议.pdf

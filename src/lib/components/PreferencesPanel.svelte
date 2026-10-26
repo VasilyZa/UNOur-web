@@ -52,4 +52,8 @@
   </div>
   <span class="small-badge">静音</span>
 </div>
-<p class="settings-footer">UNOur</p>
+<p class="settings-footer">
+  UNOur · <a href="/fonts/misans/LICENSE.pdf" target="_blank" rel="noreferrer"
+    >使用 MiSans 字体</a
+  >
+</p>

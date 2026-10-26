@@ -496,15 +496,19 @@
         onSessionLost={loseSession}
       />{/key}
   {:else}
-    <main class="entry-layout">
-      <section class="entry-card" aria-label="房间大厅">
-        <div class="entry-heading">
-          <span class="entry-icon"><Icon name="cards" size={24} /></span>
-          <h1>开始一局</h1>
+    <main class="entry-layout lobby-layout">
+      <section class="entry-card lobby-card" aria-label="房间大厅">
+        <div class="lobby-heading">
+          <div class="entry-heading">
+            <span class="entry-icon"><Icon name="cards" size={24} /></span>
+            <h1>开始一局</h1>
+          </div>
+          <p class="entry-account">
+            <Avatar src={user.avatar_url} size={24} /><span
+              >{user.username}</span
+            >
+          </p>
         </div>
-        <p class="entry-account">
-          <Avatar src={user.avatar_url} size={24} /><span>{user.username}</span>
-        </p>
         {#if restoring}<p class="loading-state" role="status">
             正在恢复牌局…
           </p>{:else}

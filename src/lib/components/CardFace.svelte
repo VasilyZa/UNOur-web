@@ -52,7 +52,6 @@
       transform="rotate(-14 50 72)"
       fill="#343b48"
       font-size="24"
-      font-family="Arial,sans-serif"
       font-weight="900"
       letter-spacing="-1.5">our.</text
     >
@@ -84,7 +83,6 @@
           y="85"
           text-anchor="middle"
           font-size="37"
-          font-family="Arial,sans-serif"
           font-weight="900"
           fill="#fff7e8"
           stroke="#292f30"
@@ -100,18 +98,12 @@
         transform="rotate(-11 50 72)"
         fill={colors[card.color]}
         font-size={card.kind === 'draw_two' ? '45' : '63'}
-        font-family="Arial,sans-serif"
         font-weight="900"
         letter-spacing="-4">{cardSymbol(card)}</text
       >
     {/if}
-    <text
-      x="13"
-      y="24"
-      fill="#fff7e8"
-      font-size="15"
-      font-family="Arial,sans-serif"
-      font-weight="800">{cardSymbol(card)}</text
+    <text x="13" y="24" fill="#fff7e8" font-size="15" font-weight="800"
+      >{cardSymbol(card)}</text
     >
     <text
       x="13"
@@ -119,7 +111,6 @@
       transform="rotate(180 50 72)"
       fill="#fff7e8"
       font-size="15"
-      font-family="Arial,sans-serif"
       font-weight="800">{cardSymbol(card)}</text
     >
     {#if card.kind === 'number'}
@@ -140,6 +131,7 @@
 
 <style>
   .card-face {
+    font-family: var(--font);
     display: block;
     width: 100%;
     height: 100%;

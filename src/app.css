@@ -1,11 +1,10 @@
+@import './styles/fonts.css';
 @import './styles/theme.css';
 @import './styles/panels.css';
 @import './styles/account.css';
 
 :root {
-  --font:
-    'Avenir Next', 'Nunito Sans', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei',
-    sans-serif;
+  --font: 'MiSans VF', system-ui, sans-serif;
   font-family: var(--font);
   color: var(--text);
   background: var(--page);
@@ -32,7 +31,9 @@ body:has(dialog[open]) {
   overflow: hidden;
 }
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 button,

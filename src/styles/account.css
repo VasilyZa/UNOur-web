@@ -94,6 +94,52 @@
 .reconnecting .room-tag {
   color: var(--warning);
 }
+@media (min-width: 700px) {
+  .app-shell:has(.lobby-layout) {
+    max-width: 1280px;
+  }
+  .lobby-layout {
+    align-items: flex-start;
+    padding: clamp(24px, 3vh, 48px) 0 32px;
+  }
+  .lobby-card {
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .lobby-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  .lobby-heading .entry-heading {
+    margin: 0;
+  }
+  .lobby-heading h1 {
+    font-size: clamp(32px, 3.5vw, 44px);
+    font-weight: 650;
+    letter-spacing: -0.035em;
+    line-height: 1.2;
+  }
+  .lobby-heading .entry-icon {
+    display: none;
+  }
+  .lobby-heading .entry-account {
+    margin: 0;
+    font-size: 13px;
+    flex-shrink: 0;
+    max-width: 45%;
+  }
+  .lobby-card > .resume-room {
+    margin: 20px 0 0;
+    font-size: 13px;
+  }
+}
 @media (max-width: 699px) {
   .entry-layout {
     padding: 24px 16px 40px;
