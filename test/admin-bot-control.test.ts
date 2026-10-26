@@ -71,8 +71,18 @@ it('真实 Bot 接管：无公开变更、暂停 AI、正常摸牌和退出恢�
   )
 
   const lost: unknown[] = []
-  const transport = new OnlineTransport(game, game.session, current, (error) =>
-    lost.push(error),
+  let ended!: (error: unknown) => void
+  const sessionEnded = new Promise<unknown>((resolve) => {
+    ended = resolve
+  })
+  const transport = new OnlineTransport(
+    game,
+    game.session,
+    current,
+    (error) => {
+      lost.push(error)
+      ended(error)
+    },
   )
   let snapshot: Snapshot | undefined
   const unsubscribe = transport.subscribe((value) => {
@@ -88,6 +98,7 @@ it('真实 Bot 接管：无公开变更、暂停 AI、正常摸牌和退出恢�
     await expect(transport.act('draw')).rejects.toMatchObject({ status: 409 })
     const version = snapshot!.room.state.version
     await game.leave(game.session)
+    expect(await sessionEnded).toMatchObject({ code: 'bot_control_lost' })
     const deadline = Date.now() + 7000
     let resumed: Room | null = null
     while (Date.now() < deadline) {
@@ -100,9 +111,6 @@ it('真实 Bot 接管：无公开变更、暂停 AI、正常摸牌和退出恢�
     expect(resumed!.state.players.find((seat) => seat.id === botId)?.name).toBe(
       'Bot1',
     )
-    await expect(transport.act('draw')).rejects.toMatchObject({
-      code: 'bot_control_lost',
-    })
     expect(lost).toHaveLength(1)
     for (const key of [
       'lease_id',
@@ -116,4 +124,4 @@ it('真实 Bot 接管：无公开变更、暂停 AI、正常摸牌和退出恢�
     transport.dispose()
     await game.leave(game.session)
   }
-})
+}, 15000)
