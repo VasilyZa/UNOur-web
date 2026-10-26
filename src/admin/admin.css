@@ -4,6 +4,10 @@
   min-height: 100dvh;
   padding: 0 32px calc(32px + env(safe-area-inset-bottom, 0px));
 }
+.admin-shell:has(.admin-bot-play) > .admin-header,
+.admin-shell:has(.admin-bot-play) > .admin-tabs {
+  display: none;
+}
 .admin-header {
   min-height: 92px;
   display: flex;

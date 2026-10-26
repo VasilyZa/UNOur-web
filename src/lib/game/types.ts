@@ -140,6 +140,20 @@ export interface GameTransport {
   dispose(): void
 }
 
+/** A game screen uses the same protocol with independently authorized adapters. */
+export interface GameClient {
+  readonly terminalErrorCodes?: readonly string[]
+  read(session: Session, signal?: AbortSignal): Promise<Room>
+  action(
+    session: Session,
+    action: Action,
+    body?: ActionBody,
+    signal?: AbortSignal,
+  ): Promise<{ room: Room }>
+  leave(session: Session): Promise<unknown>
+  dissolve(session: Session): Promise<void>
+}
+
 export const colorNames: Record<Color, string> = {
   red: '红色',
   yellow: '黄色',

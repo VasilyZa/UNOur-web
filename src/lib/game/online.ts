@@ -1,8 +1,9 @@
-import { ApiClient, ApiError } from './api'
+import { ApiError } from './api'
 import type {
   Action,
   ActionBody,
   GameTransport,
+  GameClient,
   Room,
   Session,
   Snapshot,
@@ -17,13 +18,30 @@ export class OnlineTransport implements GameTransport {
   private writing = false
   private polling = false
   private connection: Snapshot['connection'] = 'connected'
+  private api: Pick<GameClient, 'read' | 'action' | 'terminalErrorCodes'>
+  private session: Session
+  private room: Room
+  private onSessionLost?: (error: ApiError) => void
 
   constructor(
-    private api: Pick<ApiClient, 'read' | 'action'>,
-    private session: Session,
-    private room: Room,
-    private onSessionLost?: (error: ApiError) => void,
-  ) {}
+    api: Pick<GameClient, 'read' | 'action' | 'terminalErrorCodes'>,
+    session: Session,
+    room: Room,
+    onSessionLost?: (error: ApiError) => void,
+  ) {
+    this.api = api
+    this.session = session
+    this.room = room
+    this.onSessionLost = onSessionLost
+  }
+
+  private sessionEnded(error: unknown): error is ApiError {
+    return (
+      error instanceof ApiError &&
+      ([401, 404].includes(error.status) ||
+        !!this.api.terminalErrorCodes?.includes(error.code))
+    )
+  }
 
   subscribe(listener: (snapshot: Snapshot) => void): () => void {
     this.listeners.add(listener)
@@ -68,7 +86,7 @@ export class OnlineTransport implements GameTransport {
     if (
       this.writing ||
       this.polling ||
-      (typeof document !== 'undefined' && document.hidden)
+      (globalThis as { document?: { hidden: boolean } }).document?.hidden
     ) {
       this.schedule()
       return
@@ -81,7 +99,7 @@ export class OnlineTransport implements GameTransport {
       )
     } catch (error) {
       if (this.disposed) return
-      if (error instanceof ApiError && [401, 404].includes(error.status)) {
+      if (this.sessionEnded(error)) {
         this.dispose()
         this.onSessionLost?.(error)
       } else this.publish(this.room, 'reconnecting')
@@ -111,7 +129,7 @@ export class OnlineTransport implements GameTransport {
       this.publish(response.room, 'connected')
     } catch (error) {
       if (this.disposed) throw error
-      if (error instanceof ApiError && [401, 404].includes(error.status)) {
+      if (this.sessionEnded(error)) {
         this.dispose()
         this.onSessionLost?.(error)
       }

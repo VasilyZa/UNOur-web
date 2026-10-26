@@ -6,11 +6,13 @@
     activities,
     invite,
     openRules,
+    canInvite = true,
   }: {
     room: Room
     activities: { text: string; key: number }[]
     invite: (codeOnly?: boolean) => Promise<void>
     openRules: () => void
+    canInvite?: boolean
   } = $props()
   let bots = $derived(room.bots ?? {})
   let botCount = $derived(Object.keys(bots).length)
@@ -56,9 +58,12 @@
       {#if botCount}<span>电脑</span><span>{botCount} 台 · {botDifficulty}</span
         >{/if}
     </div>
-    <button class="button rail-invite" onclick={() => void invite()}>
-      <Icon name="users" size={16} />邀请玩家
-    </button>
+    {#if canInvite}<button
+        class="button rail-invite"
+        onclick={() => void invite()}
+      >
+        <Icon name="users" size={16} />邀请玩家
+      </button>{/if}
   </section>
   <section class="rail-card activity-card">
     <div class="rail-title">

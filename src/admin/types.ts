@@ -5,6 +5,16 @@ export interface AdminSession {
   expires_at: string
   csrf: string
 }
+export interface BotControlSession {
+  lease_id: string
+  expires_at: string
+  room: Room
+}
+export interface BotControlReference {
+  roomId: string
+  playerId: string
+  leaseId: string
+}
 export interface ManagedUser extends Account {
   disabled: boolean
   active_sessions: number

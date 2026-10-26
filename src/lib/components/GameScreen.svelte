@@ -8,7 +8,7 @@
   import Hand from './Hand.svelte'
   import Sheet from './Sheet.svelte'
   import TableBoard from './TableBoard.svelte'
-  import { ApiClient, ApiError, errorMessage } from '../game/api'
+  import { ApiError, errorMessage } from '../game/api'
   import { OnlineTransport } from '../game/online'
   import { unoDeclarationNotice, unoPenaltyNotice } from '../game/announcements'
   import { allowedWildColors } from '../game/rules'
@@ -20,6 +20,7 @@
     type ActionBody,
     type Card,
     type GameTransport,
+    type GameClient,
     type PlayColor,
     type Room,
     type Session,
@@ -33,13 +34,17 @@
     reduced,
     onleave,
     onSessionLost,
+    roomManagement = true,
+    exitLabel = '返回大厅',
   }: {
-    api: ApiClient
+    api: GameClient
     session: Session
     initialRoom: Room
     reduced: boolean
     onleave: () => void
     onSessionLost: (error: ApiError) => void
+    roomManagement?: boolean
+    exitLabel?: string
   } = $props()
   type Panel = '' | 'room' | 'rules' | 'color'
   let port: GameTransport
@@ -280,6 +285,7 @@
   })
 
   async function invite(codeOnly = false, watch = false) {
+    if (!roomManagement && !codeOnly) return
     const text = codeOnly
       ? room.id
       : `${location.origin}${location.pathname}?room=${encodeURIComponent(room.id)}${watch ? '&watch=1' : ''}`
@@ -336,7 +342,11 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
-<main class="game-layout" class:reconnecting={connection === 'reconnecting'}>
+<svelte:element
+  this={roomManagement ? 'main' : 'section'}
+  class="game-layout"
+  class:reconnecting={connection === 'reconnecting'}
+>
   <section class="game-panel" aria-label="UNOur 游戏">
     <div class="room-heading">
       <div>
@@ -360,13 +370,13 @@
           onclick={() => {
             panel = 'rules'
           }}><Icon name="info" size={19} /></button
-        ><button
-          class="icon-button"
-          aria-label="打开房间与邀请"
-          onclick={() => {
-            panel = 'room'
-          }}><Icon name="users" size={19} /></button
-        >
+        >{#if roomManagement}<button
+            class="icon-button"
+            aria-label="打开房间与邀请"
+            onclick={() => {
+              panel = 'room'
+            }}><Icon name="users" size={19} /></button
+          >{/if}
       </div>
     </div>
     <TableBoard
@@ -473,7 +483,7 @@
       {:else if room.state.phase === 'lobby'}
         {#if botCount}
           <button class="button primary" onclick={() => void leave()}
-            >返回大厅<Icon name="arrow" size={18} /></button
+            >{exitLabel}<Icon name="arrow" size={18} /></button
           >
         {:else}
           <button class="button secondary" onclick={() => void invite()}
@@ -501,7 +511,7 @@
             ? '对局信息'
             : '房间信息'}</button
         ><button class="button primary" onclick={() => void leave()}
-          >返回大厅<Icon name="arrow" size={18} /></button
+          >{exitLabel}<Icon name="arrow" size={18} /></button
         >
       {:else}
         <button
@@ -551,11 +561,12 @@
     {room}
     {activities}
     {invite}
+    canInvite={roomManagement}
     openRules={() => {
       panel = 'rules'
     }}
   />
-</main>
+</svelte:element>
 <footer class="desktop-footer">
   <span>UNOur</span><button
     class="text-button"

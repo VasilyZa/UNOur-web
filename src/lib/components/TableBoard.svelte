@@ -27,7 +27,10 @@
     botCount ? botDifficultyNames[Object.values(bots)[0].difficulty] : '',
   )
   let botThinking = $derived(
-    state.phase === 'playing' && !!state.turn && !!bots[state.turn],
+    state.phase === 'playing' &&
+      !!state.turn &&
+      state.turn !== state.you &&
+      !!bots[state.turn],
   )
   let myTurn = $derived(state.turn === state.you && state.phase === 'playing')
 

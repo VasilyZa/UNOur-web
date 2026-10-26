@@ -1,5 +1,7 @@
 import { ApiError, HttpClient } from '../lib/http'
 import type {
+  BotControlSession,
+  BotControlReference,
   AdminRoom,
   AdminSession,
   AuditPage,
@@ -10,6 +12,7 @@ import type {
   RoomPage,
   UserPage,
 } from './types'
+import type { Action, ActionBody, Room } from '../lib/game/types'
 
 // Only CSRF is held in memory. The administrator cookie remains HttpOnly.
 export class AdminClient extends HttpClient {
@@ -19,6 +22,7 @@ export class AdminClient extends HttpClient {
     method = 'GET',
     body?: unknown,
     signal?: AbortSignal,
+    headers: Record<string, string> = {},
   ): Promise<T> {
     try {
       return await this.request(
@@ -28,7 +32,10 @@ export class AdminClient extends HttpClient {
         undefined,
         signal,
         undefined,
-        method === 'GET' ? {} : { 'X-Admin-CSRF': this.csrf },
+        {
+          ...headers,
+          ...(method === 'GET' ? {} : { 'X-Admin-CSRF': this.csrf }),
+        },
       )
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) this.csrf = ''
@@ -102,6 +109,55 @@ export class AdminClient extends HttpClient {
   }
   edit(id: string, body: CardEdit): Promise<AdminRoom> {
     return this.admin(`/rooms/${encodeURIComponent(id)}/cards`, 'POST', body)
+  }
+  acquireBot(
+    id: string,
+    playerId: string,
+    instance: string,
+  ): Promise<BotControlSession> {
+    return this.admin(
+      `/rooms/${encodeURIComponent(id)}/bots/${encodeURIComponent(playerId)}/control`,
+      'POST',
+      { instance },
+    )
+  }
+  private botPath(ref: BotControlReference): string {
+    return `/rooms/${encodeURIComponent(ref.roomId)}/bots/${encodeURIComponent(ref.playerId)}`
+  }
+  readBot(
+    ref: BotControlReference,
+    signal?: AbortSignal,
+  ): Promise<BotControlSession> {
+    return this.admin(
+      `${this.botPath(ref)}/control`,
+      'GET',
+      undefined,
+      signal,
+      { 'X-Bot-Control': ref.leaseId },
+    )
+  }
+  renewBot(
+    ref: BotControlReference,
+    signal?: AbortSignal,
+  ): Promise<BotControlSession> {
+    return this.admin(`${this.botPath(ref)}/control`, 'PUT', {}, signal, {
+      'X-Bot-Control': ref.leaseId,
+    })
+  }
+  releaseBot(ref: BotControlReference): Promise<void> {
+    return this.admin(`${this.botPath(ref)}/control`, 'DELETE', {}, undefined, {
+      'X-Bot-Control': ref.leaseId,
+    })
+  }
+  botAction(
+    ref: BotControlReference,
+    action: Action,
+    body: ActionBody,
+    signal?: AbortSignal,
+  ): Promise<{ room: Room }> {
+    return this.admin(`${this.botPath(ref)}/${action}`, 'POST', body, signal, {
+      'X-Bot-Control': ref.leaseId,
+    })
   }
   deleteRooms(rooms: DeleteTarget[]): Promise<DeleteBatch> {
     return this.admin('/rooms/batch/delete', 'POST', { rooms })

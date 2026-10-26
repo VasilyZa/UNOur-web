@@ -42,6 +42,8 @@
       onclick={() => vote(!agreed)}
       >{busy ? '正在确认…' : agreed ? '已同意 · 撤回' : '同意再来一局'}</button
     >
+  {:else if room.bots?.[room.state.you]}
+    <p>电脑席位自动同意，等待其他玩家确认。</p>
   {:else}
     <p>你正在观战，可在房间面板中报名下一局。</p>
   {/if}
