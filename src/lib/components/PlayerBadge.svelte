@@ -1,16 +1,19 @@
 <script lang="ts">
   import Avatar from './Avatar.svelte'
+  import { changeFeedback } from '../motion/feedback'
   import { botDifficultyNames, type BotSeat, type Player } from '../game/types'
   let {
     player,
     bot,
     active = false,
     avatarURL = '',
+    reduced = false,
   }: {
     player: Player
     bot?: BotSeat
     active?: boolean
     avatarURL?: string
+    reduced?: boolean
   } = $props()
   let status = $derived(
     player.eliminated
@@ -28,12 +31,15 @@
 <div
   class:active
   class:eliminated={player.eliminated}
+  class:gentle={reduced}
   class="opponent"
   aria-label={`${player.name}${bot ? `，电脑，${botDifficultyNames[bot.difficulty]}难度` : ''}，${player.hand_count} 张手牌${active ? `，${status}` : ''}`}
 >
   <div class="avatar-wrap">
     <div class="avatar"><Avatar src={avatarURL} size="100%" /></div>
-    <span class="card-count"
+    <span
+      class="card-count"
+      use:changeFeedback={{ value: player.hand_count, reduced, kind: 'count' }}
       >{player.hand_count}<span class="sr-only"> 张</span></span
     >
   </div>
@@ -57,8 +63,25 @@
     border: 1px solid transparent;
     border-radius: 50%;
   }
+  .avatar-wrap::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border: 1px solid var(--accent);
+    border-radius: inherit;
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+    transition:
+      transform 160ms var(--ease-out),
+      opacity 160ms var(--ease-out);
+  }
   .active .avatar-wrap {
-    border-color: var(--accent);
+    border-color: transparent;
+  }
+  .active .avatar-wrap::after {
+    opacity: 1;
+    transform: scale(1);
   }
   .avatar {
     width: 48px;
@@ -167,5 +190,15 @@
     .active .player-name {
       color: var(--accent);
     }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .avatar-wrap::after {
+      transform: none;
+      transition: opacity 120ms var(--ease-out);
+    }
+  }
+  :global(.gentle) .avatar-wrap::after {
+    transform: none;
+    transition: opacity 120ms var(--ease-out);
   }
 </style>

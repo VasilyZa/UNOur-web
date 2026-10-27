@@ -2,6 +2,7 @@
   import CardFace from './CardFace.svelte'
   import PlayerBadge from './PlayerBadge.svelte'
   import Icon from './Icon.svelte'
+  import { changeFeedback, resultEntrance } from '../motion/feedback'
   import { botDifficultyNames, colorNames, type Room } from '../game/types'
   let {
     room,
@@ -33,28 +34,9 @@
       !!bots[state.turn],
   )
   let myTurn = $derived(state.turn === state.you && state.phase === 'playing')
-
-  function arrive(node: HTMLElement) {
-    const gentle =
-      reduced || matchMedia('(prefers-reduced-motion: reduce)').matches
-    const animation = node.animate(
-      [
-        {
-          opacity: 0.4,
-          transform: gentle
-            ? 'none'
-            : 'translateY(16px) rotate(-6deg) scale(.97)',
-        },
-        { opacity: 1, transform: 'none' },
-      ],
-      { duration: 220, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' },
-    )
-    return {
-      destroy() {
-        animation.cancel()
-      },
-    }
-  }
+  let whisperVisible = $derived(
+    state.phase === 'lobby' || !!me?.uno || state.pending_draw > 0,
+  )
 </script>
 
 <section class="table-board" aria-label="牌桌">
@@ -69,9 +51,13 @@
       aria-label="其他玩家，可左右滑动或使用方向键浏览"
     >
       <div class="opponents" class:many={opponents.length > 4}>
-        {#each opponents as player (player.id)}<div class="opponent-slot">
+        {#each opponents as player (player.id)}<div
+            class="opponent-slot"
+            data-motion-player={player.id}
+          >
             <PlayerBadge
               {player}
+              {reduced}
               bot={bots[player.id]}
               avatarURL={room.profiles?.[player.id]?.avatar_url}
               active={state.turn === player.id}
@@ -93,7 +79,9 @@
   <div class="arena" class:calling={!!me?.uno}>
     <div class="felt-ring" aria-hidden="true"></div>
     <div class="table-meta">
-      <span class="current-color"
+      <span
+        class="current-color"
+        use:changeFeedback={{ value: state.active_color ?? '', reduced }}
         ><i class={`color-dot ${state.active_color || 'red'}`}
         ></i>{state.phase === 'lobby'
           ? '准备发牌'
@@ -102,23 +90,31 @@
       <span
         class="direction"
         aria-label={state.direction === 1 ? '顺时针出牌' : '逆时针出牌'}
-        ><svg
-          viewBox="0 0 24 24"
-          width="14"
-          height="14"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          aria-hidden="true"
-          style:transform={state.direction === 1 ? 'none' : 'scaleX(-1)'}
-          ><path
-            d="M3 11a9 9 0 0 1 16-5l2 3M21 3v6h-6M21 13a9 9 0 0 1-16 5l-2-3M3 21v-6h6"
-          /></svg
+        ><span
+          class="direction-glyph"
+          use:changeFeedback={{
+            value: state.direction,
+            reduced,
+            kind: 'direction',
+          }}
+          ><svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            style:transform={state.direction === 1 ? 'none' : 'scaleX(-1)'}
+            ><path
+              d="M3 11a9 9 0 0 1 16-5l2 3M21 3v6h-6M21 13a9 9 0 0 1-16 5l-2-3M3 21v-6h6"
+            /></svg
+          ></span
         >{state.direction === 1 ? '顺时针' : '逆时针'}</span
       >
     </div>
     {#if state.phase === 'finished'}
-      <div class="finish-state">
+      <div class="finish-state" use:resultEntrance={reduced}>
         <span class="finish-icon"><Icon name="trophy" size={31} /></span><span
           class="eyebrow">本局结果</span
         >
@@ -133,7 +129,7 @@
     {:else}
       <div class="piles" class:lobby={state.phase === 'lobby'}>
         <div class="pile-column">
-          <div class="deck-wrap">
+          <div class="deck-wrap" data-motion-deck>
             <div class="deck-layer one" aria-hidden="true"></div>
             <div class="deck-layer two" aria-hidden="true"></div>
             {#if room.role === 'spectator'}
@@ -163,10 +159,10 @@
           >
         </div>
         <div class="pile-column">
-          <div class="discard-wrap">
+          <div class="discard-wrap" data-motion-discard>
             <div class="discard-shadow" aria-hidden="true"></div>
             {#key state.top_card?.id}<div class="discard-card">
-                <div class="discard-inner" use:arrive>
+                <div class="discard-inner">
                   <CardFace card={state.top_card} back={!state.top_card} />
                 </div>
               </div>{/key}
@@ -187,19 +183,21 @@
           ></button
         >
       {/if}
-      {#if state.phase === 'lobby' || me?.uno || state.pending_draw}<p
-          class="table-whisper"
-        >
-          {state.phase === 'lobby'
-            ? botCount
-              ? '人机对局准备中'
-              : '复制房间号以邀请玩家'
-            : me?.uno
-              ? '点中央按钮 · 或按空格键'
-              : state.pending_draw
-                ? `桌上有 ${state.pending_draw} 张罚牌待处理`
-                : ''}
-        </p>{/if}
+      <p
+        class="table-whisper"
+        class:quiet={!whisperVisible}
+        aria-hidden={!whisperVisible}
+      >
+        {state.phase === 'lobby'
+          ? botCount
+            ? '人机对局准备中'
+            : '复制房间号以邀请玩家'
+          : me?.uno
+            ? '点中央按钮 · 或按空格键'
+            : state.pending_draw
+              ? `桌上有 ${state.pending_draw} 张罚牌待处理`
+              : ''}
+      </p>
     {/if}
   </div>
 </section>
@@ -334,6 +332,9 @@
   .direction {
     font-size: 9px;
   }
+  .direction-glyph {
+    display: inline-flex;
+  }
   .piles {
     display: flex;
     justify-content: center;
@@ -435,11 +436,17 @@
     border-radius: 4px;
   }
   .table-whisper {
+    /* Keep the piles fixed when UNO/penalty hints appear or are dismissed. */
+    min-height: 1.5em;
+    line-height: 1.5;
     text-align: center;
     color: var(--muted);
     font-size: 10px;
     letter-spacing: 0.6px;
     margin: 4px 0 19px;
+  }
+  .table-whisper.quiet {
+    visibility: hidden;
   }
   .uno-call {
     position: absolute;

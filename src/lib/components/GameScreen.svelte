@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy, untrack } from 'svelte'
+  import { onMount, onDestroy, tick, untrack } from 'svelte'
   import RoomPanel from './RoomPanel.svelte'
   import RematchPanel from './RematchPanel.svelte'
   import Icon from './Icon.svelte'
@@ -8,6 +8,8 @@
   import Hand from './Hand.svelte'
   import Sheet from './Sheet.svelte'
   import TableBoard from './TableBoard.svelte'
+  import { TableMotion } from '../motion/table'
+  import { changeFeedback } from '../motion/feedback'
   import { ApiError, errorMessage } from '../game/api'
   import { OnlineTransport } from '../game/online'
   import { unoDeclarationNotice, unoPenaltyNotice } from '../game/announcements'
@@ -48,6 +50,8 @@
   } = $props()
   type Panel = '' | 'room' | 'rules' | 'color'
   let port: GameTransport
+  let surface = $state<HTMLElement>()
+  let motion: TableMotion | undefined
   let unsubscribe = () => {}
   let room = $state.raw<Room>(untrack(() => initialRoom))
   let connection = $state<Snapshot['connection']>('connected')
@@ -131,6 +135,13 @@
     let previous: Room | undefined
     unsubscribe = next.subscribe((snapshot) => {
       const current = snapshot.room
+      if (motion) {
+        if (connection === 'connected' && snapshot.connection === 'connected') {
+          // Capture the source card before Svelte removes it from the hand.
+          const play = motion.prepare(room, current, reduced)
+          void tick().then(play)
+        } else motion.clear()
+      }
       if (previous && current.state.version > previous.state.version) {
         const unoNotice = [
           unoDeclarationNotice(previous.state, current.state),
@@ -328,6 +339,14 @@
   }
   onMount(() => {
     window.scrollTo(0, 0)
+    if (surface) motion = new TableMotion(surface)
+  })
+  $effect(() => {
+    if (reduced) motion?.clear()
+  })
+  $effect(() => {
+    if (!me?.uno) return
+    now = Date.now()
     const ticker = setInterval(() => {
       now = Date.now()
     }, 50)
@@ -337,6 +356,7 @@
     alive = false
     unsubscribe()
     port?.dispose()
+    motion?.dispose()
     clearTimeout(noticeTimer)
   })
 </script>
@@ -344,6 +364,7 @@
 <svelte:window onkeydown={onKey} />
 <svelte:element
   this={roomManagement ? 'main' : 'section'}
+  bind:this={surface}
   class="game-layout"
   class:reconnecting={connection === 'reconnecting'}
 >
@@ -388,7 +409,13 @@
       onuno={sayUNO}
     />
     <div class="turn-strip" class:your-turn={myTurn} role="status">
-      <span class="turn-indicator"><i></i></span>
+      <span
+        class="turn-indicator"
+        use:changeFeedback={{
+          value: `${room.state.phase}:${room.state.turn}`,
+          reduced,
+        }}><i></i></span
+      >
       <div>
         <strong
           >{room.state.phase === 'lobby'
@@ -436,6 +463,7 @@
       <RematchPanel
         {room}
         {busy}
+        {reduced}
         vote={(agree) =>
           void run('rematch', {
             agree,

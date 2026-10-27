@@ -2,6 +2,7 @@
   import { onMount, onDestroy, tick } from 'svelte'
   import CardFace from './CardFace.svelte'
   import Icon from './Icon.svelte'
+  import { changeFeedback } from '../motion/feedback'
   import {
     cardName,
     suggestsPlayable,
@@ -107,6 +108,9 @@
   })
 
   function cardIn(node: HTMLElement, index: number) {
+    // Subsequent cards are handed over by TableMotion; a second entrance would
+    // reveal a drawn face at its destination while its back is still flying.
+    if (mounted) return
     const gentle =
       reduced || matchMedia('(prefers-reduced-motion: reduce)').matches
     const animation = node.animate(
@@ -131,7 +135,9 @@
 <section class="hand-section" aria-label="你的手牌">
   <div class="hand-heading">
     <div>
-      <span class="hand-title">我的手牌</span><span class="hand-total"
+      <span class="hand-title">我的手牌</span><span
+        class="hand-total"
+        use:changeFeedback={{ value: hand.length, reduced, kind: 'count' }}
         >{hand.length} 张</span
       >
     </div>

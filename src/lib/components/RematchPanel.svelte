@@ -1,10 +1,17 @@
 <script lang="ts">
   import type { Room } from '../game/types'
+  import { changeFeedback, resultEntrance } from '../motion/feedback'
   let {
     room,
     busy,
     vote,
-  }: { room: Room; busy: boolean; vote: (agree: boolean) => void } = $props()
+    reduced = false,
+  }: {
+    room: Room
+    busy: boolean
+    vote: (agree: boolean) => void
+    reduced?: boolean
+  } = $props()
   let roster = $derived([
     ...room.state.players.filter(
       (p) => !room.bots?.[p.id] && !room.departed?.includes(p.id),
@@ -16,9 +23,15 @@
   let agreed = $derived(votes.includes(room.state.you))
 </script>
 
-<section class="rematch-panel" aria-label="再来一局">
+<section
+  class="rematch-panel"
+  aria-label="再来一局"
+  use:resultEntrance={reduced}
+>
   <div class="rematch-heading">
-    <strong>再来一局</strong><span aria-live="polite"
+    <strong>再来一局</strong><span
+      aria-live="polite"
+      use:changeFeedback={{ value: votes.length, reduced, kind: 'count' }}
       >{votes.length} / {roster.length} 人同意</span
     >
   </div>
@@ -82,6 +95,7 @@
     max-width: 100%;
     overflow-wrap: anywhere;
     opacity: 0.5;
+    transition: opacity 160ms var(--ease-out);
   }
   .rematch-members .agreed {
     opacity: 1;
